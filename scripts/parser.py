@@ -4,6 +4,7 @@ import apimoex
 import os
 
 from functools import reduce
+from datetime import datetime
 
 # get all stocks traded in TQBR regime
 request_url = ('https://iss.moex.com/iss/engines/stock/'
@@ -30,27 +31,14 @@ def check_tqbr(ticker):
         return list(map(check_tqbr, ticker))
     else:
         if ticker not in tqbr_list:
-            raise ValueError('Тикер, который вы ввели, не торгуется в основном режиме'
-                             '(T+) на ММВБ. Попробуйте ещё раз, либо измените режим торгов!')
-
-
-def get_ticker_history(ticker, start_date: str, end_date: str):
-    with requests.Session() as session:
-        data = apimoex.get_board_history(session,
-                                         security=ticker,
-                                         start=start_date,
-                                         end=end_date,
-                                         columns=('TRADEDATE', 'CLOSE'))
-        df = pd.DataFrame(data)
-        # df.set_index('TRADEDATE', inplace=True)
-
-    return df
+            raise ValueError('Тикер, который вы ввели, не торгуется в основном режиме (T+) на ММВБ.'
+                             'Либо вы неправильно ввели тикер, либо измените режим торгов!')
 
 
 def get_historical_data(ticker, start_date: str, end_date: str):
     '''
     Returns daily close data for TQBR regime
-    :param ticker: str (one ticker)
+    :param ticker: str (one ticker) or list of strings
     :param start_date: str (yyyy-mm-dd)
     :param end_date: str (yyyy-mm-dd)
     '''
@@ -60,16 +48,33 @@ def get_historical_data(ticker, start_date: str, end_date: str):
 
     if isinstance(ticker, list):
         out = reduce(lambda left, right: pd.merge(left, right, on=['TRADEDATE'], ),
-                     [get_ticker_history(ticker=x,
-                                         start_date=start_date,
-                                         end_date=end_date) for x in ticker])
+                     [get_historical_data(ticker=x,
+                                          start_date=start_date,
+                                          end_date=end_date) for x in ticker])
 
-        out.rename(columns=dict(zip(out.columns, ['TRADEDATE'] + ticker)), inplace=True)
-
+        out.rename(columns=dict(zip(out.columns, ticker)), inplace=True)
         return out
-    return get_ticker_history(ticker=ticker, start_date=start_date, end_date=end_date)
+
+    else:
+        with requests.Session() as session:
+            data = apimoex.get_board_history(session,
+                                             security=ticker,
+                                             start=start_date,
+                                             end=end_date,
+                                             columns=('TRADEDATE', 'CLOSE'))
+            df = pd.DataFrame(data)
+            df.set_index('TRADEDATE', inplace=True)
+            df.columns = [ticker]
+
+        return df
 
 
 if __name__ == '__main__':
-    df = get_historical_data(['SNGSP', 'ALRS'], start_date='2019-06-09', end_date='2019-07-17')
-    print(df)
+    tickers = ['FIVE', 'MGNT', 'LNTA', 'DSKY', 'MVID']
+    start = '2014-09-01'
+    end = datetime.now().strftime('%Y-%m-%d')
+    df = get_historical_data(tickers, start, end)
+
+    fpath = os.getcwd().replace('\\', '/')[:-7] + 'data/daily_prices.csv'
+    df.to_csv(fpath)
+    print('Downloaded data and saved it to csv')
