@@ -1,5 +1,6 @@
-![python] (https://img.shields.io/pypi/pyversions/apimoex?color=orange&label=Python%20version&logoColor=blueviolet)
 # metrics_HW2
+
+<img src="https://img.shields.io/pypi/pyversions/apimoex?color=orange&label=Python%20version&logoColor=blueviolet">
 
 Задача второй домашки - оценить гарчи на российских акциях и пострить для акций VaR на основе GARCH. Наш сектор - retail.
 Предлагаю моделировать в R,  так как в тз задания требуется реализовать модель ARIMA-GARCH, а в питоновских библиотеках нет реализации объединённой модели - отдельно ARIMA, отдельно GARCH.
