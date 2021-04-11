@@ -15,6 +15,7 @@
 **Update.**
 - [x] Загрузил все кроме Русагро (включая М.Видео) в виде .csv файла в папку `data`
 - [x] написал скрипт для выкачки данных с сайта ММВБ (валяется в папке `scripts`)
+
 <span class="float-left text-red tooltipped tooltipped-n" aria-label="Does not meet accessibility standards"><%= octicon("alert") %></span>
 <div class="text-orange-light mb-2">
   проблема - X5 Retail Group начала торговать своими депозитарными расписками на ММВБ с 2 февраля 2018 года, а задание в ЛМС требует оцненивать модель на данных начиная с 2014-09-01.
