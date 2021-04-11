@@ -1,3 +1,4 @@
+![python] (https://img.shields.io/pypi/pyversions/apimoex?color=orange&label=Python%20version&logoColor=blueviolet)
 # metrics_HW2
 
 Задача второй домашки - оценить гарчи на российских акциях и пострить для акций VaR на основе GARCH. Наш сектор - retail.
