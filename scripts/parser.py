@@ -3,8 +3,11 @@ import requests
 import apimoex
 import os
 
-from functools import reduce
+from functools import reduce, partial
+from itertools import repeat
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor
+from time import perf_counter
 
 
 def get_tqbr_stocks():
@@ -38,6 +41,12 @@ def check_tqbr(ticker):
                              'Либо вы неправильно ввели тикер, либо измените режим торгов!')
 
 
+def concurrent_executor(f, iterable):
+    with ThreadPoolExecutor() as exec:
+        results = list(exec.map(f, iterable))
+    return results
+
+
 def get_historical_data(ticker, start_date: str, end_date: str):
     '''
     Returns daily close data for TQBR regime
@@ -49,11 +58,12 @@ def get_historical_data(ticker, start_date: str, end_date: str):
     # check whether ticker supplied is correct and trades in TQBR regime
     check_tqbr(ticker)
 
+    args = ((x, start_date, end_date) for x in tickers)
+
     if isinstance(ticker, list):
         out = reduce(lambda left, right: pd.merge(left, right, on=['TRADEDATE'], ),
-                     [get_historical_data(ticker=x,
-                                          start_date=start_date,
-                                          end_date=end_date) for x in ticker])
+                     concurrent_executor(lambda p: get_historical_data(*p),
+                                         args))
 
         out.rename(columns=dict(zip(out.columns, ticker)), inplace=True)
         return out
@@ -76,7 +86,11 @@ if __name__ == '__main__':
     tickers = ['FIVE', 'MGNT', 'LNTA', 'DSKY', 'MVID']
     start = '2014-09-01'
     end = datetime.now().strftime('%Y-%m-%d')
+
+    tic = perf_counter()
     df = get_historical_data(tickers, start, end)
+    toc = perf_counter()
+    print(f'Downloaded data in {toc - tic:0.4f} seconds')
 
     fpath = os.getcwd().replace('\\', '/')[:-7] + 'data/daily_prices.csv'
     df.to_csv(fpath)
