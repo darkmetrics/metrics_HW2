@@ -6,16 +6,16 @@ import os
 from functools import reduce
 from datetime import datetime
 
-# get all stocks traded in TQBR regime
-request_url = ('https://iss.moex.com/iss/engines/stock/'
-               'markets/shares/boards/TQBR/securities.json')
-arguments = {'securities.columns': ('SECID')}
-
 
 def get_tqbr_stocks():
     '''
     Returns list of tickers of all stocks traded in TQBR (i. e. T+) regime
     '''
+
+    request_url = ('https://iss.moex.com/iss/engines/stock/'
+                   'markets/shares/boards/TQBR/securities.json')
+    arguments = {'securities.columns': ('SECID')}
+
     with requests.Session() as session:
         iss = apimoex.ISSClient(session, request_url, arguments)
         data = iss.get()
@@ -25,6 +25,9 @@ def get_tqbr_stocks():
 
 
 def check_tqbr(ticker):
+    '''
+    Raises ValueError if ticker is written incorrectly or is traded not in TQBR regime
+    '''
     tqbr_list = get_tqbr_stocks()
     # if multiple tickers passed
     if isinstance(ticker, list):
@@ -43,7 +46,7 @@ def get_historical_data(ticker, start_date: str, end_date: str):
     :param end_date: str (yyyy-mm-dd)
     '''
 
-    # check whether ticker supplied is traded in TQBR regime
+    # check whether ticker supplied is correct and trades in TQBR regime
     check_tqbr(ticker)
 
     if isinstance(ticker, list):
