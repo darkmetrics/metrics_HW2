@@ -47,9 +47,11 @@ def concurrent_executor(f, iterable):
     return results
 
 
-def get_historical_data(ticker, start_date: str, end_date: str):
+def get_historical_data(ticker, start_date: str, end_date: str, allow_na=True):
     '''
     Returns daily close data for TQBR regime
+    :param allow_na: for instance, start_date is 2014-01-01, and some of tickers began to trade at 2014-06-01. Than if
+    allow_na=True the data for such tickers over the period between 2014-01-01 and 2014-06-01 will be filled with NaNs
     :param ticker: str (one ticker) or list of strings
     :param start_date: str (yyyy-mm-dd)
     :param end_date: str (yyyy-mm-dd)
@@ -58,16 +60,25 @@ def get_historical_data(ticker, start_date: str, end_date: str):
     # check whether ticker supplied is correct and trades in TQBR regime
     check_tqbr(ticker)
 
-    args = ((x, start_date, end_date) for x in tickers)
-
+    # if multiple tickers are submitted in function
     if isinstance(ticker, list):
-        out = reduce(lambda left, right: pd.merge(left, right, on=['TRADEDATE'], ),
+
+        args = ((x, start_date, end_date) for x in ticker)
+
+        # if nans in data are allowed
+        if allow_na:
+            raw = list(concurrent_executor(lambda p: get_historical_data(*p), args))
+            out = reduce(lambda left, right: pd.merge(left, right, on=['TRADEDATE'], how='left'),
+                         list(sorted(raw, key=lambda x: x.shape[0], reverse=True)))
+            return out
+
+        # otherwise cut data to have no  NaNs
+        out = reduce(lambda left, right: pd.merge(left, right, on=['TRADEDATE']),
                      concurrent_executor(lambda p: get_historical_data(*p),
                                          args))
-
-        out.rename(columns=dict(zip(out.columns, ticker)), inplace=True)
         return out
 
+    # get data for one security
     else:
         with requests.Session() as session:
             data = apimoex.get_board_history(session,
@@ -89,6 +100,7 @@ if __name__ == '__main__':
 
     tic = perf_counter()
     df = get_historical_data(tickers, start, end)
+    print(df.tail())
     toc = perf_counter()
     print(f'Downloaded data in {toc - tic:0.4f} seconds')
 
