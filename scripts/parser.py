@@ -83,7 +83,7 @@ def get_historical_data(ticker, start_date: str, end_date: str):
 
 
 if __name__ == '__main__':
-    tickers = ['FIVE', 'MGNT', 'LNTA', 'DSKY', 'MVID']
+    tickers = ['FIVE', 'MGNT', 'LNTA', 'MVID']
     start = '2014-09-01'
     end = datetime.now().strftime('%Y-%m-%d')
 
