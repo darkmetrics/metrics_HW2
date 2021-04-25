@@ -1,14 +1,14 @@
 library(dplyr) # работа с табличками
 library(tidyverse) # работа с табличками
-library(readxl) # чтение данных из эксель-файла
 library(lubridate) # работа с датами
+library(broom) # обработка табличек с результатами
 library(ggplot2) # графики
 library(urca) # работа с временными рядами
 library(forecast) # работа с временными рядами
 library(rugarch) # одномерные гарчи
 library(rmgarch) # многомерные гарчи
 
-# loading data
+# загрузка данных
 dfpath <- str_replace(getwd(), '/scripts', '/data/returns.csv')
 df <- read.csv(dfpath)
 # конвертируем даты в формат дат
@@ -38,9 +38,11 @@ tsdisplay((df$MVID^2), main = 'MVID squared returns')
 # наверно нужны какие-то тесты на г/ск в остатках, но пока это не важно
 
 # наконец запишем спецификацию GARCH-модели для MVID
+# документация здесь:
+# https://www.rdocumentation.org/packages/rugarch/versions/1.4-4/topics/ugarchspec-methods
 # в модели среднего мы предполагаем, что доходность M.Video около нуля и константа не нужна
-mvid_spec <- ugarchspec(variance.model = list(garchOrder = c(1, 1)),
-                        mean.model = list(armaOrder = c(1, 1), include.mean = FALSE))
+mvid_spec <- ugarchspec(variance.model = list(model = 'sGARCH', garchOrder = c(1, 1)),
+                        mean.model = list(armaOrder = c(2, 1), include.mean = FALSE))
 mvid_model <- ugarchfit(spec = mvid_spec, data = df$MVID)
 # посмотрим на результаты оценивания
 mvid_model
@@ -51,6 +53,21 @@ plot(mvid_model)
 # особенно нас интересует, победили ли мы автокорреляцию и гетероскедастичность
 plot(mvid_model, which = 10)
 plot(mvid_model, which = 11)
+
+# теперь попробуем учесть в модели не-Гауссово распределение доходностей
+# у нас есть альтернатива - в R реализовано, например, распределение Стьюдента для случайной ошибки в GARCH
+mvid_spec_t <- ugarchspec(variance.model = list(model = 'sGARCH', garchOrder = c(1, 1)),
+                          mean.model = list(armaOrder = c(2, 1), include.mean = FALSE),
+                          distribution.model = 'std')
+mvid_model_t <- ugarchfit(spec = mvid_spec_t, data = df$MVID)
+# посмотрим на результаты оценивания
+mvid_model_t
+# сравним информационные критерии
+infocrit_df <- cbind(infocriteria(mvid_model), infocriteria(mvid_model_t))
+colnames(infocrit_df) <- c('GARCH(1, 1)', 'GARCH(1, 1) with T-errors')
+infocrit_df
+# модель с шоками из распределения Стьюдента лучше по всем информационным критериям
+
 
 #### и так для остальных эмитентов, а также тест Купика, скользящие прогнозы и VaR
 
