@@ -1,9 +1,9 @@
 library(dplyr) # работа с табличками
 library(tidyverse) # работа с табличками
+library(openxlsx) # работа с эксель-файлами, необходима для сохранения результатов в эксель
 library(zoo) # работа с датами и рядами
 library(xts) # работа с датами и рядами
 library(lubridate) # работа с датами
-library(broom) # обработка табличек с результатами
 library(ggplot2) # графики
 library(grid) # графики
 library(gridExtra) # несколько графиков в одном
@@ -11,7 +11,7 @@ library(urca) # работа с временными рядами
 library(forecast) # работа с временными рядами
 library(rugarch) # одномерные гарчи
 library(rmgarch) # многомерные гарчи
-
+library(Hmisc) # корреляционная матрица с p-значениями
 
 # загрузка данных
 dfpath <- str_replace(getwd(), '/scripts', '/data/returns.csv')
@@ -120,6 +120,25 @@ legend('topright',
 
 #### и так для остальных эмитентов, а также тест Купика, скользящие прогнозы и VaR
 
+# напишем функцию для теста Купика
+# тест проверяет, что число пробитий для VaR с конкретным уровнем доверия равно ожидаемому
+# например, для 683 наблюдений оценка 5% VaR должна давать примерно 683*0.05=34 пробития
+# тест проверяет, так ли это
+# аргументы функции: n_obs - число наблюдений в данных, на которых проводится тест
+# returns - истинные исторические доходности, VaR - прогнозные оценки VaR на исторических данных (бэктест)
+# confidence_level - уровень доверия в тесте
+kupiec_test <- function(n_obs, returns, VaR, confidence_level) {
+  L <- n_obs
+  K <- sum(returns < VaR)
+  a0 <- K / L
+  a <- confidence_level
+  S <- 2 * log((1 - a0)^(L - K) * a0^K) - 2 * log((1 - a)^(L - K) * a^K)
+  pval <- round(1 - pchisq(S, 1), 4)
+  print('Kupiec test with H0: Value at Risk model is correct at given confidence level')
+  print(paste0('P-value of test statistic: ', pval,
+               ', confidence level: ', confidence_level))
+}
+
 
 #######################
 # Multivariate models #
@@ -152,22 +171,22 @@ ticker_rollcorr <- function(df, window, main_ticker, other_tickers) {
   out <- rolling_corr(df,
                       window,
                       c(main_ticker, other_tickers[1]))
-  for (ticker in other_tickers[2:length(other_tickers)]) {
-    out <- cbind(out,
-                 rolling_corr(df,
-                              window,
-                              c(main_ticker, ticker)))
-  }
-  colnames(out) <- sapply(other_tickers,
-                          function(x) paste0(main_ticker, ' and ', x))
-  return(out)
+  if (length(other_tickers) == 1) { return(out) } else {
+    for (ticker in other_tickers[2:length(other_tickers)]) {
+      out <- cbind(out,
+                   rolling_corr(df,
+                                window,
+                                c(main_ticker, ticker)))
+    }
+    colnames(out) <- sapply(other_tickers,
+                            function(x) paste0(main_ticker, ' and ', x))
+    return(out) }
 }
 
 plot_corr <- function(data,
                       window,
                       main_ticker,
                       other_tickers) {
-
   p <- plot.xts(ticker_rollcorr(data,
                                 window = window,
                                 main_ticker = main_ticker,
@@ -186,24 +205,13 @@ p1 <- plot_corr(mdf_ts, 126, 'FIVE', c('MGNT', 'LNTA', 'MVID'))
 p2 <- plot_corr(mdf_ts, 126, 'MGNT', c('FIVE', 'LNTA', 'MVID'))
 p3 <- plot_corr(mdf_ts, 126, 'LNTA', c('FIVE', 'MGNT', 'MVID'))
 
-
+# нарисуем скользящие полугодовые корреляции для всех эмитентов
 par(mfrow = c(3, 1))
 p1
 p2
 p3
-dev.off()
+par(mfrow = c(1, 1))
 
-# Best: https://www.youtube.com/watch?v=8VXmRl5gzEU
-# https://www.youtube.com/watch?v=Sf1nwKYk9Iw
-#https://rpubs.com/englianhu/binary-Q1Multi-GARCH
-#
-# http://www.unstarched.net/r-examples/rugarch/a-short-introduction-to-the-rugarch-package/
-# good https://rpubs.com/JesusZ/ModelGarch
-# strange https://rpubs.com/englianhu/binary-Q1-Added
-# good https://rpubs.com/samejimakim/MGARCH
-# univariate not bad https://rpubs.com/florian1/garchmodeling
-# good https://rpubs.com/EconFin/mgarch
-#
 # DCC-GARCH
 # model specification setup
 # at first assume some univariate volatility models of each asset
@@ -264,23 +272,243 @@ dcc_fit <- dccfit(spec = dcc_spec,
                   fit = multifit)
 # check that GARCH coefficents are the same as in the univariate models
 dcc_fit
+# вытащим оценки коэффициентов и стандартные ошибки
+dcc_coef <- slot(dcc_fit, 'mfit')[['matcoef']]
+dcc_coef
+
+# информационные критерии
+infocriteria(dcc_fit)
+
 # we see that dcca1 is significant only at 10% level, and coefficient for unconditional covariance matrix is 1-.01-.07
 # (only dccb1 significant value indicates that conditional correlation shall decline over time)
 # let's test hypothesis of constant correlation
 DCCtest(mdf_ts, garchOrder = c(1, 1), n.lags = 1, solver = "solnp",
         solver.control = list(), cluster = NULL, Z = NULL)
-# we reject H0 of constant correlation at 5% level
-#!!! проверить нулевую гипотезу теста, в документации есть ссылки на статьи
-# сделать модель без мвидео
-# the subject of specific interest in multivariate model is conditional covariances
+# Нулевая гипотеза теста: корреляционная матрица не меняется с течением времени
+# p-value гипотезы 0.034, то есть она отвергается на 5% и 10% уровне значимости
+# источник теста:
+# Engle, R.F. and Sheppard, K. 2001, Theoretical and empirical properties of dynamic conditional correlation multivariate GARCH, NBER Working Paper
+
+# посмотрим на условные ковариации, оценённые внутри модели
 dcc_cov <- rcov(dcc_fit)
 dcc_corr <- rcor(dcc_fit)
-# the object contains covariance matrix for each trading date
+# этот объект содержит ковариацонную матрицу для каждой даты торгов
 dim(dcc_cov)
-# let's look at the last observed correlation matrix
+# посмотрим на матрицу для последней даты, для которой имеются наблюдения в наборе данных
 dcc_corr[, , dim(dcc_corr)[3]]
-# for instance, we are interested in correlation between MGNT and FIVE -> row 1, column 2
+# например, мы заинтересованы в оценке корреляции между MGNT and FIVE -> ряд 1, столбец 2
 cor_fm <- dcc_corr[1, 2,]
 cor_fm <- as.xts(cor_fm)
-plot(cor_fm, main = 'Conditional correlation between FIVE and MGNT')
-# finished at 26 minute of video
+plot(cor_fm,
+     type = 'l',
+     main = 'Conditional correlation between FIVE and MGNT')
+
+# объединим данные, чтобы сравнить скользящие корреляции и оценённые моделью, хотя это не одно и то же
+rolling_five_q <- rolling_corr(mdf_ts, 63, c('FIVE', 'MGNT'))
+rolling_five_m <- rolling_corr(mdf_ts, 21, c('FIVE', 'MGNT'))
+# поскольку почему-то в данных появляются разные часы, уберём это с помощью to.daily
+merged <- merge.xts(to.daily(cor_fm, OHLC = FALSE),
+                    to.daily(rolling_five_q, OHLC = FALSE),
+                    to.daily(rolling_five_m, OHLC = FALSE),
+                    join = 'left')
+
+colnames(merged) <- c('Model',
+                      'Rolling 63-day window',
+                      'Rolling 21-day window')
+
+plot(merged$Model,
+     type = 'l',
+     ylim = c(-.7, .9),
+     main = 'Different correlations between FIVE and MGNT')
+lines(merged$`Rolling 21-day window`, col = 'red')
+lines(merged$`Rolling 63-day window`, col = 'lightblue', lwd = 2)
+# поскольку объект xts, у него свой способ добавления легенды, который связан с legend в base
+addLegend('bottomright',
+          #lty = 1, lwd = 1,
+          legend.names = c('Model',
+                           'Rolling 21-day window',
+                           'Rolling 63-day window'),
+          fill = c('black', 'red', 'lightblue'),
+          bg = "white",
+          bty = "o")
+
+# посмотрим на корреляцию М.Видео с X5
+cor_mvid <- dcc_corr[1, 4,]
+cor_mvid <- as.xts(cor_mvid)
+plot(cor_mvid,
+     type = 'l',
+     main = 'Conditional correlation between FIVE and MVID')
+
+# теперь нас интересуют прогнозы корреляций на 10 дней вперёд
+dcc_forecast <- dccforecast(dcc_fit, n.ahead = 10)
+dcc_forecast
+corr_forecast <- dcc_forecast@mforecast$R
+# это трёхмерная матрица с прогнозами
+str(corr_forecast)
+# нарисуем последние оценки корреляции и прогноз
+plot_corr_fcst <- function(fit,
+                           n_estimates,
+                           n_ahead,
+                           corr_mat_row,
+                           corr_mat_col,
+                           first_ticker,
+                           second_ticker) {
+
+  dcc_forecast <- dccforecast(fit, n.ahead = n_ahead)
+  corr_forecast <- dcc_forecast@mforecast$R
+  corr_fcst <- c(rep(NA, n_estimates),
+                 corr_forecast[[1]][corr_mat_row, corr_mat_col,])
+  corr_est <- c(tail(dcc_corr[corr_mat_row, corr_mat_col,], n_estimates),
+                rep(NA, 10))
+
+  plot(x = 1:70, y = corr_est,
+       type = 'l', col = 'green', xlab = 'Дни',
+       main = paste0('Оценка корреляции ',
+                     first_ticker,
+                     ' и ',
+                     second_ticker,
+                     ' за последний квартал и прогноз на 10 дней'))
+  lines(x = 1:70, y = corr_fcst, col = 'red')
+  legend('topright',
+         legend = c('Оценка', 'Прогноз'),
+         fill = c('green', 'red'))
+}
+
+par(mfrow = c(3, 1))
+plot_corr_fcst(dcc_fit, 60, 10, 1, 2, 'FIVE', 'MGNT')
+plot_corr_fcst(dcc_fit, 60, 10, 1, 3, 'FIVE', 'LNTA')
+plot_corr_fcst(dcc_fit, 60, 10, 2, 3, 'MGNT', 'LNTA')
+par(mfrow = c(1, 1))
+# посмотрим на М.Видео отдельно
+plot_corr_fcst(dcc_fit, 60, 10, 1, 4, 'FIVE', 'MVID')
+# поскольку М.Видео меньше всего связан с другими эмитентами,
+# возможно, имеет смысл для него использовать постоянные корреляции
+# протестируем значимость выборочной корреляции между М.Видео и остальными акциями
+cormat_test <- rcorr(mdf_ts, type = c('pearson'))
+# сами корреляции
+cormat_test$r
+# p-values
+cormat_test$P
+# что интересно, на 10% уровне корреляции между М.Видео и остальными значимы
+# на уровне 5% значимы корреляции М.Видео с Лентой и X5 Retail Group
+# поэтому оставим всё как есть
+
+# VaR
+portfolio_variance <- function(w, cov_mat) {
+  if (class(cov_mat) == 'list') {
+    cov_mat <- matrix(unlist(cov_mat),
+                      nrow = length(w))
+  }
+  return(t(w) %*% cov_mat %*% w) }
+
+equal_weights <- function(n_assets) {
+  return(rep(1 / n_assets, n_assets))
+}
+
+# также нам нужно многомерное распределение Стьюдента
+# по результатам оценивания модели DCC-GARCH, у совместного распределения 5.96~6 степеней свободы
+# проведём бэктест модели
+# сколько наблюдений взять для бэктеста? Допустим, мы оцениваем модель на полугодовых данных
+# скользящее окно - 126 наблюдений, в нашем датасете 810 наблюдений
+# следующая строчка кода выполняется приблизительно 12 мин, поэтому не следует её запускать без лишней надобности
+backtest_rolling <- dccroll(dcc_spec,
+                            mdf_ts,
+                            n.ahead = 1, # прогноз на 1 период вперёд
+                            #forecast.length = 50,
+                            refit.every = 1,
+                            n.start = 127, # альтернатива forecast_length
+                            refit.window = c("moving"),
+                            window.size = 126,
+                            solver = "solnp",
+                            fit.control = list(eval.se = TRUE))
+
+# нас в первую очередь интересуют оценки ковариационной матрицы
+# backtest_rolling@mforecast - список из 683 элементов, и из каждого надо достать прогноз
+# посмотрим на ковариацонную матрицу для первого дня прогноза
+example_forecast <- backtest_rolling@mforecast[[1]]@mforecast$H
+example_forecast
+
+cov_list <- list()
+for (i in 1:length(backtest_rolling@mforecast)) {
+  cov_list[[i]] <- backtest_rolling@mforecast[[i]]@mforecast$H
+}
+# рассчитаем дисперсию всего портфеля
+portfolio_vars <- c()
+for (i in 1:length(cov_list)) {
+  portfolio_vars[i] <- portfolio_variance(equal_weights(4), cov_list[[i]])
+}
+# нарисуем оценки стандартного отклонения, полученные в ходе бэктеста
+plot(y = (portfolio_vars)**(1 / 2) * -1,
+     x = tail(index(mdf_ts), 683),
+     ylim = c(-0.05, 0.05),
+     type = 'l',
+     main = 'Оценка волатильности портфеля по модели DCC-GARCH',
+     xlab = 'Время',
+     lwd = 2)
+lines(y = rowSums(tail(mdf_ts, 683) * equal_weights(4)),
+      x = tail(index(mdf_ts), 683),
+      col = 'gray', type = 'p', pch = 19, cex = .9)
+lines(y =
+        (portfolio_vars)**(1 / 2) *
+          qdist(distribution = 'std', shape = 5.96, p = 0.05),
+      x = tail(index(mdf_ts), 683),
+      col = 'red',
+      lwd = 2)
+lines(y =
+        (portfolio_vars)**(1 / 2) *
+          qdist(distribution = 'std', shape = 5.96, p = 0.01),
+      x = tail(index(mdf_ts), 683),
+      col = 'lightblue',
+      lwd = 2)
+legend('topleft',
+       cex = 1,
+       #box.col = 'white',
+       #text.font=12,
+       legend = c('Доходность портфеля',
+                  'Прогноз стандартного отклонения на 1 период',
+                  '5% Value at Risk',
+                  '1% Value at Risk'),
+       fill = c('gray', 'black', 'red', 'lightblue'))
+
+# посчитаем число пробитий и проведём тест Купика, H0 - число пробитий совпадает с ожидаемым
+var_est_1 <- (portfolio_vars)**(1 / 2) *
+  qdist(distribution = 'std', shape = 5.96, p = 0.01)
+var_est_5 <- (portfolio_vars)**(1 / 2) *
+  qdist(distribution = 'std', shape = 5.96, p = 0.05)
+test <- rowSums(tail(mdf_ts, 683) * equal_weights(4))
+
+print(paste0('Ожидаемое число пробитий 5% VaR ',
+             683 * 0.05,
+             ', фактическое ',
+             sum(test < var_est_5)))
+print(paste0('Ожидаемое число пробитий 1% VaR ',
+             683 * 0.01,
+             ', фактическое ',
+             sum(test < var_est_1)))
+
+# для 1% VaR наблюдаем пробитий (ожидали 7), для 5% VaR пробитий (ожидали )
+# проведём тест Купика для бэктеста, используем скользящие прогнозы на 1 период вперёд
+kupiec_test(683, test, var_est_1, 0.01)
+kupiec_test(683, test, var_est_5, 0.05)
+# на уровне 5% p-value теста 82%, на уровне 1% p-value 42%
+# при любых уровнях значимости гипотеза о некорректной модели VaR отвергается
+
+# сохраним оценки волатильности из многомерной модели в эксель
+
+# создадим эксель-файл для сохранения табличек с результатами
+fname <- 'dcc_garch.xlsx'
+excel <- createWorkbook(fname)
+# add seet to excel file
+firstSheet <- 'multiv. GARCH data'
+addWorksheet(excel, firstSheet)
+writeData(excel, sheet = 1, mdf_ts)
+
+secondSheet <- 'DCC-GARCH coef'
+addWorksheet(excel, secondSheet)
+writeData(excel, sheet = 2, dcc_coef)
+
+thirdSheet <- 'DCC-GARCH infocriteria'
+addWorksheet(excel, thirdSheet)
+writeData(excel, sheet = 3, infocriteria(dcc_fit))
+# correlatio atrices, p vales for te, var estiates
+
