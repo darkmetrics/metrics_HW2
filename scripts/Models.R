@@ -212,6 +212,55 @@ p2
 p3
 par(mfrow = c(1, 1))
 
+# нарисуем график для отчёта
+par(mfrow = c(2, 1), mar = c(2, 3, 2, 3))
+plot(index(mdf_ts),
+     rolling_corr(mdf_ts, 126, c('MGNT', 'FIVE')),
+     type = 'l',
+     col = '#b22222',
+     ylim = c(-0.1, 0.8),
+     xlab = 'Время',
+     ylab = 'Корреляция',
+     main = '')
+lines(index(mdf_ts),
+      rolling_corr(mdf_ts, 126, c('LNTA', 'FIVE')),
+      col = 'black')
+lines(index(mdf_ts),
+      rolling_corr(mdf_ts, 126, c('LNTA', 'MGNT')),
+      col = 'lightblue', lwd = 2)
+legend('topleft',
+       cex = 0.7,
+       #box.col = 'white',
+       #text.font=12,
+       legend = c('FIVE и MGNT',
+                  'FIVE и LNTA',
+                  'MGNT и LNTA'),
+       fill = c('#b22222', 'black', 'lightblue'))
+# теперь то же самое для М.Видео
+plot(index(mdf_ts),
+     rolling_corr(mdf_ts, 126, c('MVID', 'FIVE')),
+     type = 'l',
+     col = '#b22222',
+     ylim = c(-0.1, 0.4),
+     xlab = 'Время',
+     ylab = 'Корреляция',
+     main = '')
+lines(index(mdf_ts),
+      rolling_corr(mdf_ts, 126, c('MVID', 'MGNT')),
+      col = 'black')
+lines(index(mdf_ts),
+      rolling_corr(mdf_ts, 126, c('MVID', 'LNTA')),
+      col = 'lightblue', lwd = 2)
+legend('topleft',
+       cex = 0.7,
+       #box.col = 'white',
+       #text.font=12,
+       legend = c('MVID и FIVE',
+                  'MVID и MGNT',
+                  'MVID и LNTA'),
+       fill = c('#b22222', 'black', 'lightblue'))
+
+par(mfrow = c(1, 1))
 # DCC-GARCH
 # model specification setup
 # at first assume some univariate volatility models of each asset
@@ -219,7 +268,7 @@ par(mfrow = c(1, 1))
 # first we shall select individual mean models for the period between 2018 and 2020 for each stock
 plot_acf <- function(series, series_name) {
   p <- ggAcf(series) +
-    ggtitle(paste0("Sample ACF for ", series_name)) +
+    ggtitle(paste0("Выборочная ACF для ", series_name)) +
     xlab("Lag") +
     ylab("ACF") +
     theme(plot.title = element_text(hjust = 0.5))
@@ -229,7 +278,7 @@ plot_acf <- function(series, series_name) {
 
 plot_pacf <- function(series, series_name) {
   p <- ggPacf(series) +
-    ggtitle(paste0("Sample PACF for ", series_name)) +
+    ggtitle(paste0("Выборочная PACF для ", series_name)) +
     xlab("Lag") +
     ylab("PACF") +
     theme(plot.title = element_text(hjust = 0.5))
@@ -248,8 +297,8 @@ p8 <- plot_pacf(mdf_ts$MVID, 'MVID')
 
 grid.arrange(p1, p2, p3, p4, p5, p6, p7, p8,
              nrow = 4,
-             top = textGrob('Sample ACF and PACF 2018-2021',
-                            gp = gpar(fontsize = 20)))
+             top = textGrob('Выборочные ACF и PACF 2018-2021',
+                            gp = gpar(fontsize = 18)))
 
 # we see that all series nave no statistically significant sample ACF and PACF values
 # and have zero mean, so the appropriate mean model is ARIMA(0,0,0)
@@ -260,6 +309,7 @@ uspec_n <- multispec(replicate(4, ugarchspec(variance.model = list(model = 'sGAR
 # estimate multiple univariate models
 multifit <- multifit(uspec_n, mdf_ts)
 multifit@fit
+multifit_fit <- multifit@fit
 # on 10% level Ljung-Box H0 of no autocorrelation of residuals is not rejected for all univariate models
 # specify DCC model with Student multivariate distribution and (1,1) conditional correlation order
 dcc_spec <- dccspec(uspec = uspec_n,
@@ -319,15 +369,15 @@ colnames(merged) <- c('Model',
 plot(merged$Model,
      type = 'l',
      ylim = c(-.7, .9),
-     main = 'Different correlations between FIVE and MGNT')
+     main = 'Различные корреляции между FIVE и MGNT')
 lines(merged$`Rolling 21-day window`, col = 'red')
 lines(merged$`Rolling 63-day window`, col = 'lightblue', lwd = 2)
 # поскольку объект xts, у него свой способ добавления легенды, который связан с legend в base
 addLegend('bottomright',
           #lty = 1, lwd = 1,
-          legend.names = c('Model',
-                           'Rolling 21-day window',
-                           'Rolling 63-day window'),
+          legend.names = c('Модель',
+                           'Скользящее 21-дневное окно',
+                           'Скользящее 63-дневное окно'),
           fill = c('black', 'red', 'lightblue'),
           bg = "white",
           bty = "o")
@@ -369,7 +419,7 @@ plot_corr_fcst <- function(fit,
                      second_ticker,
                      ' за последний квартал и прогноз на 10 дней'))
   lines(x = 1:70, y = corr_fcst, col = 'red')
-  legend('topright',
+  legend('bottomright',
          legend = c('Оценка', 'Прогноз'),
          fill = c('green', 'red'))
 }
@@ -444,6 +494,7 @@ plot(y = (portfolio_vars)**(1 / 2) * -1,
      type = 'l',
      main = 'Оценка волатильности портфеля по модели DCC-GARCH',
      xlab = 'Время',
+     ylab = '',
      lwd = 2)
 lines(y = rowSums(tail(mdf_ts, 683) * equal_weights(4)),
       x = tail(index(mdf_ts), 683),
@@ -501,14 +552,56 @@ excel <- createWorkbook(fname)
 # add seet to excel file
 firstSheet <- 'multiv. GARCH data'
 addWorksheet(excel, firstSheet)
-writeData(excel, sheet = 1, mdf_ts)
+writeData(excel, sheet = 1, mdf_ts, rowNames = TRUE)
 
 secondSheet <- 'DCC-GARCH coef'
 addWorksheet(excel, secondSheet)
-writeData(excel, sheet = 2, dcc_coef)
+writeData(excel, sheet = 2, dcc_coef, rowNames = TRUE)
 
 thirdSheet <- 'DCC-GARCH infocriteria'
 addWorksheet(excel, thirdSheet)
-writeData(excel, sheet = 3, infocriteria(dcc_fit))
-# correlatio atrices, p vales for te, var estiates
+writeData(excel, sheet = 3, infocriteria(dcc_fit), rowNames = TRUE)
 
+# проведём тест Льюнга-Бокса для стандартизированных остатков и их квадратов
+residuals_list <- list()
+for (i in 1:4) { residuals_list[[i]] <- residuals(multifit@fit[[i]],
+                                                  standardize = TRUE) }
+for (i in 1:4) {
+  print(Box.test(residuals_list[[i]]**2,
+                 lag = 1, type = c("Ljung-Box"), fitdf = 0)) }
+# сохраним в файл результаты тестирования значимости выборочных корреляций
+fourthSheet <- 'corr matrix'
+addWorksheet(excel, fourthSheet)
+writeData(excel, sheet = 4, cormat_test$r, rowNames = TRUE)
+
+fifthSheet <- 'corr matrix p-values'
+addWorksheet(excel, fifthSheet)
+writeData(excel, sheet = 5, cormat_test$P, rowNames = TRUE)
+
+# сохраним оценки Value at Risk и волатильности
+sixSheet <- 'conditional vol and VaR'
+addWorksheet(excel, sixSheet)
+
+vars_and_vols <- cbind(var_est_5, var_est_1, portfolio_vars**(1 / 2), test)
+dateindex <- tail(index(mdf_ts), 683)
+vars_and_vols <- xts(vars_and_vols, order.by = dateindex)
+colnames(vars_and_vols) <- c('5% VaR', '1% VaR', 'Conditional vol', 'Portdolio returns')
+writeData(excel, sheet = 6, vars_and_vols, rowNames = TRUE)
+
+saveWorkbook(excel, file = fname, overwrite = TRUE)
+
+# тажке нас просят посчитать прогноз Value at Risk - сделаем на один период вперёд
+dcc_forecast <- dccforecast(dcc_fit, n.ahead = 1)
+dcc_forecast
+cov_forecast <- dcc_forecast@mforecast$H
+portfolio_cov_forecast <- portfolio_variance(equal_weights(4),
+                                             cov_forecast)
+portfolio_cov_forecast
+portfolio_VaR_5 <- -(portfolio_var_forecast)**(1 / 2) *
+  qdist(distribution = 'std', shape = 5.96, p = 0.05)
+portfolio_VaR_1 <- -(portfolio_var_forecast)**(1 / 2) *
+  qdist(distribution = 'std', shape = 5.96, p = 0.01)
+portfolio_VaR_5
+# 1.40%
+portfolio_VaR_1
+# 2.27%
