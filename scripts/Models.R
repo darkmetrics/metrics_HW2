@@ -1,132 +1,200 @@
-library(dplyr) # работа с табличками
-library(tidyverse) # работа с табличками
-library(openxlsx) # работа с эксель-файлами, необходима для сохранения результатов в эксель
-library(zoo) # работа с датами и рядами
-library(xts) # работа с датами и рядами
-library(lubridate) # работа с датами
-library(ggplot2) # графики
-library(grid) # графики
-library(gridExtra) # несколько графиков в одном
-library(urca) # работа с временными рядами
-library(forecast) # работа с временными рядами
-library(rugarch) # одномерные гарчи
-library(rmgarch) # многомерные гарчи
-library(Hmisc) # корреляционная матрица с p-значениями
+library(dplyr) # СЂР°Р±РѕС‚Р° СЃ С‚Р°Р±Р»РёС‡РєР°РјРё
+library(tidyverse) # СЂР°Р±РѕС‚Р° СЃ С‚Р°Р±Р»РёС‡РєР°РјРё
+library(openxlsx) # СЂР°Р±РѕС‚Р° СЃ СЌРєСЃРµР»СЊ-С„Р°Р№Р»Р°РјРё, РЅРµРѕР±С…РѕРґРёРјР° РґР»СЏ СЃРѕС…СЂР°РЅРµРЅРёСЏ СЂРµР·СѓР»СЊС‚Р°С‚РѕРІ РІ СЌРєСЃРµР»СЊ
+library(zoo) # СЂР°Р±РѕС‚Р° СЃ РґР°С‚Р°РјРё Рё СЂСЏРґР°РјРё
+library(xts) # СЂР°Р±РѕС‚Р° СЃ РґР°С‚Р°РјРё Рё СЂСЏРґР°РјРё
+library(lubridate) # СЂР°Р±РѕС‚Р° СЃ РґР°С‚Р°РјРё
+library(ggplot2) # РіСЂР°С„РёРєРё
+library(grid) # РіСЂР°С„РёРєРё
+library(gridExtra) # РЅРµСЃРєРѕР»СЊРєРѕ РіСЂР°С„РёРєРѕРІ РІ РѕРґРЅРѕРј
+library(urca) # СЂР°Р±РѕС‚Р° СЃ РІСЂРµРјРµРЅРЅС‹РјРё СЂСЏРґР°РјРё
+library(forecast) # СЂР°Р±РѕС‚Р° СЃ РІСЂРµРјРµРЅРЅС‹РјРё СЂСЏРґР°РјРё
+library(rugarch) # РѕРґРЅРѕРјРµСЂРЅС‹Рµ РіР°СЂС‡Рё
+library(rmgarch) # РјРЅРѕРіРѕРјРµСЂРЅС‹Рµ РіР°СЂС‡Рё
+library(Hmisc) # РєРѕСЂСЂРµР»СЏС†РёРѕРЅРЅР°СЏ РјР°С‚СЂРёС†Р° СЃ p-Р·РЅР°С‡РµРЅРёСЏРјРё
+library(Rmpfr) 
 
-# загрузка данных
+gray.colors(n, start = 0.3, end = 0.9, gamma = 2.2, alpha, rev = FALSE)
+
+# Р·Р°РіСЂСѓР·РєР° РґР°РЅРЅС‹С…
 dfpath <- str_replace(getwd(), '/scripts', '/data/returns.csv')
 df <- read.csv(dfpath)
-# конвертируем даты в формат дат
+# РєРѕРЅРІРµСЂС‚РёСЂСѓРµРј РґР°С‚С‹ РІ С„РѕСЂРјР°С‚ РґР°С‚
 df$TRADEDATE <- as.Date(df$TRADEDATE, format = '%Y-%m-%d')
 glimpse(df)
-# отлично, все данные открываются, причём цифры в нужном формате
+# РѕС‚Р»РёС‡РЅРѕ, РІСЃРµ РґР°РЅРЅС‹Рµ РѕС‚РєСЂС‹РІР°СЋС‚СЃСЏ, РїСЂРёС‡РµРј С†РёС„СЂС‹ РІ РЅСѓР¶РЅРѕРј С„РѕСЂРјР°С‚Рµ
 
-# посмотрим на распределения доходностей и сравним их с нормальными
+# РїРѕСЃРјРѕС‚СЂРёРј РЅР° СЂР°СЃРїСЂРµРґРµР»РµРЅРёСЏ РґРѕС…РѕРґРЅРѕСЃС‚РµР№ Рё СЃСЂР°РІРЅРёРј РёС… СЃ РЅРѕСЂРјР°Р»СЊРЅС‹РјРё
 compare_distribution <-
   function(x, name) {
     plot <- qplot(x, geom = 'density',
-                  main = paste0('Распределение ', toString(name), ' (синее) и нормальное')) +
-      geom_density(fill = 'blue', alpha = 0.4) +
-      geom_density(aes(rnorm(200000, mean(x), sd(x))), fill = 'red', alpha = 0.25) +
+                  main = paste0('Р Р°СЃРїСЂРµРґРµР»РµРЅРёРµ ', toString(name), ' Рё РЅРѕСЂРјР°Р»СЊРЅРѕРµ')) +
+      geom_density(alpha = 0.4) +
+      geom_density(aes(rnorm(1000000, mean(x), sd(x))), alpha = 0.25, fill = 'grey20') +
       labs(x = '') +
-      theme(plot.title = element_text(hjust = 0.5))
+      scale_colour_grey() +
+      theme_classic() + 
+      theme(plot.title = element_text(size=9, hjust = 0.5))
     
     return(plot)
   }
 
-grid.arrange(compare_distribution(df[!is.na(df$FIVE), 'FIVE'], 'FIVE'),
+p <- grid.arrange(compare_distribution(df[!is.na(df$FIVE), 'FIVE'], 'FIVE'),
              compare_distribution(df$'MGNT', 'MGNT'),
              compare_distribution(df$'LNTA', 'LNTA'),
              compare_distribution(df$'MVID', 'MVID'),
-             ncol = 2)
+             ncol = 2) 
 
 
 #####################
 # Univariate models #
 #####################
 
-# посмотрим на ряд доходностей М.Видео
-ggtsdisplay(df$MVID, main = 'MVID returns')
+# РїРѕСЃРјРѕС‚СЂРёРј РЅР° СЂСЏРґ РґРѕС…РѕРґРЅРѕСЃС‚РµР№ С›.В¬РёРґРµРѕ
+tsdisplay(df$FIVE, main = 'Р”РѕС…РѕРґРЅРѕСЃС‚Рё FIVE', theme = NULL) 
 
-# тест на стационарность проведён в Питоне, но сделаем его и здесь
+autoplot(ts(df$MVID), main = 'Р”РѕС…РѕРґРЅРѕСЃС‚Рё MVID', xlab = 'Р’СЂРµРјСЏ', ylab = 'Р”РѕС…РѕРґРЅРѕСЃС‚СЊ')+
+  theme_classic()
+
+
+
+# С‚РµСЃС‚ РЅР° СЃС‚Р°С†РёРѕРЅР°СЂРЅРѕСЃС‚СЊ РїСЂРѕРІРµРґРµРЅ РІ С•РёС‚РѕРЅРµ, РЅРѕ СЃРґРµР»Р°РµРј РµРіРѕ Рё Р·РґРµСЃСЊ
 mvid_adf <- ur.df(type = 'none', df$MVID, selectlags = 'AIC')
 summary(mvid_adf)
 
-# можно предложить модель ARIMA(1, 0, 1) по графику, проверим, какую модель предложить нам auto.arima
+# РјРѕР¶РЅРѕ РїСЂРµРґР»РѕР¶РёС‚СЊ РјРѕРґРµР»СЊ ARIMA(1, 0, 1) РїРѕ РіСЂР°С„РёРєСѓ, РїСЂРѕРІРµСЂРёРј, РєР°РєСѓСЋ РјРѕРґРµР»СЊ РїСЂРµРґР»РѕР¶РёС‚СЊ РЅР°Рј auto.arima
 mvid_arima <- auto.arima(df$MVID)
 summary(mvid_arima)
-# предлагает ARIMA(2, 0, 1), но третий лаг AR не значим - оставим модель среднего ARIMA(2, 0, 1)
+# РїСЂРµРґР»Р°РіР°РµС‚ ARIMA(2, 0, 1), РЅРѕ С‚СЂРµС‚РёР№ Р»Р°Рі AR РЅРµ Р·РЅР°С‡РёРј - РѕСЃС‚Р°РІРёРј РјРѕРґРµР»СЊ СЃСЂРµРґРЅРµРіРѕ ARIMA(2, 0, 1)
 
-# проверим визуально на наличие условной гетероскедастичности
-ggtsdisplay((df$MVID^2), main = 'MVID squared returns')
-# выраженная гетероскедастичность
-# наверно нужны какие-то тесты на г/ск в остатках, но пока это не важно
 
-# наконец запишем спецификацию GARCH-модели для MVID
-# документация здесь:
+# РџРѕРґР±РѕСЂ РјРѕРґРµР»Рё ARIMA
+
+fit_arma <- Arima(df$MVID, order=c(1,0,1),include.mean = FALSE)
+print(fit_arma)
+
+fit_arma_2_1 <- Arima(df$MVID, order=c(2,0,1),include.mean = FALSE)
+print(fit_arma_2_1)
+
+fit_arma_3_1 <- Arima(df$MVID, order=c(3,0,1),include.mean = FALSE)
+print(fit_arma_3_1)
+
+fit_arma_3_2 <- Arima(df$MVID, order=c(3,0,2),include.mean = FALSE)
+print(fit_arma_3_2)
+
+fit_arma_3_3 <- Arima(df$MVID, order=c(3,0,3),include.mean = FALSE)
+print(fit_arma_3_3)
+
+fit_arma_4_3 <- Arima(df$MVID, order=c(4,0,3),include.mean = FALSE)
+print(fit_arma_4_3)
+
+fit_arma_4_4 <- Arima(df$MVID, order=c(4,0,4),include.mean = FALSE)
+print(fit_arma_4_4)
+
+model.arima = auto.arima(df$FIVE , max.order = c(3 , 0 ,3) , stationary = TRUE , trace = T , ic = 'aicc')
+
+model.arima = auto.arima(df$FIVE , max.order = c(3 , 0 ,3) , stationary = TRUE , trace = T , ic = 'bic')
+
+# РїСЂРѕРІРµСЂРёРј РІРёР·СѓР°Р»СЊРЅРѕ РЅР° РЅР°Р»РёС‡РёРµ СѓСЃР»РѕРІРЅРѕР№ РіРµС‚РµСЂРѕСЃРєРµРґР°СЃС‚РёС‡РЅРѕСЃС‚Рё
+tsdisplay((df$FIVE^2), main = 'FIVE squared returns') 
+
+# РІС‹СЂР°Р¶РµРЅРЅР°СЏ РіРµС‚РµСЂРѕСЃРєРµРґР°СЃС‚РёС‡РЅРѕСЃС‚СЊ
+# РЅР°РІРµСЂРЅРѕ РЅСѓР¶РЅС‹ РєР°РєРёРµ-С‚Рѕ С‚РµСЃС‚С‹ РЅР° Рі/СЃРє РІ РѕСЃС‚Р°С‚РєР°С…, РЅРѕ РїРѕРєР° СЌС‚Рѕ РЅРµ РІР°Р¶РЅРѕ
+
+# РЅР°РєРѕРЅРµС† Р·Р°РїРёС€РµРј СЃРїРµС†РёС„РёРєР°С†РёСЋ GARCH-РјРѕРґРµР»Рё РґР»СЏ MVID
+# РґРѕРєСѓРјРµРЅС‚Р°С†РёСЏ Р·РґРµСЃСЊ:
 # https://www.rdocumentation.org/packages/rugarch/versions/1.4-4/topics/ugarchspec-methods
-# в модели среднего мы предполагаем, что доходность M.Video около нуля и константа не нужна
+# РІ РјРѕРґРµР»Рё СЃСЂРµРґРЅРµРіРѕ РјС‹ РїСЂРµРґРїРѕР»Р°РіР°РµРј, С‡С‚Рѕ РґРѕС…РѕРґРЅРѕСЃС‚СЊ M.Video РѕРєРѕР»Рѕ РЅСѓР»СЏ Рё РєРѕРЅСЃС‚Р°РЅС‚Р° РЅРµ РЅСѓР¶РЅР°
+
 mvid_spec <- ugarchspec(variance.model = list(model = 'sGARCH', garchOrder = c(1, 1)),
                         mean.model = list(armaOrder = c(2, 1), include.mean = FALSE))
 mvid_model <- ugarchfit(spec = mvid_spec, data = df$MVID)
-# посмотрим на результаты оценивания
+# РїРѕСЃРјРѕС‚СЂРёРј РЅР° СЂРµР·СѓР»СЊС‚Р°С‚С‹ РѕС†РµРЅРёРІР°РЅРёСЏ
 mvid_model
-# информационные критерии
+
+# РёРЅС„РѕСЂРјР°С†РёРѕРЅРЅС‹Рµ РєСЂРёС‚РµСЂРёРё
 infocriteria(mvid_model)
-# построим кучу графиков и кайфанём что R сделал всё за нас
-plot(mvid_model)
-# особенно нас интересует, победили ли мы автокорреляцию и гетероскедастичность
-plot(mvid_model, which = 10)
+# РїРѕСЃС‚СЂРѕРёРј РєСѓС‡Сѓ РіСЂР°С„РёРєРѕРІ 
+plot(mvid_model)  
+# РѕСЃРѕР±РµРЅРЅРѕ РЅР°СЃ РёРЅС‚РµСЂРµСЃСѓРµС‚, РїРѕР±РµРґРёР»Рё Р»Рё РјС‹ Р°РІС‚РѕРєРѕСЂСЂРµР»СЏС†РёСЋ Рё РіРµС‚РµСЂРѕСЃРєРµРґР°СЃС‚РёС‡РЅРѕСЃС‚СЊ
+plot(mvid_model, which = 10) 
 plot(mvid_model, which = 11)
 
-# теперь попробуем учесть в модели не-Гауссово распределение доходностей
-# у нас есть альтернатива - в R реализовано, например, распределение Стьюдента для случайной ошибки в GARCH
+residuals(mvid_model, standardize = TRUE)
+residuals(mvid_model)
+
+# Рђ/Рљ РѕСЃС‚Р°С‚РєРѕРІ
+tsdisplay(mvid_model@fit$residuals)
+ggAcf(residuals(mvid_model, standardize = TRUE), main = 'ACF MVID') + 
+  theme_classic()
+
+ggAcf(residuals(mvid_model, standardize = TRUE)^2, main = 'ACF MVID') + 
+  theme_classic()
+
+ggAcf(mvid_model@fit$residuals,2, main = 'ACF MVID') + 
+  theme_classic()
+
+print(Box.test(mvid_model@fit$residuals,
+               lag = 1, type = c("Ljung-Box"), fitdf = 0))
+
+Box.test(mvid_model@fit$residuals, lag=10, type = "Lj")
+
+checkresiduals(mvid_model@fit$residuals, lag = 10)
+checkresiduals(mvid_model@fit$residuals, lag = 10)
+
+
+# С‚РµРїРµСЂСЊ РїРѕРїСЂРѕР±СѓРµРј СѓС‡РµСЃС‚СЊ РІ РјРѕРґРµР»Рё РЅРµРіР°СѓСЃСЃРѕРІРѕ СЂР°СЃРїСЂРµРґРµР»РµРЅРёРµ РґРѕС…РѕРґРЅРѕСЃС‚РµР№
+# Сѓ РЅР°СЃ РµСЃС‚СЊ Р°Р»СЊС‚РµСЂРЅР°С‚РёРІР° - РІ R СЂРµР°Р»РёР·РѕРІР°РЅРѕ, РЅР°РїСЂРёРјРµСЂ, 
+# СЂР°СЃРїСЂРµРґРµР»РµРЅРёРµ вЂ” РЎС‚СЊСЋРґРµРЅС‚Р° РґР»СЏ СЃР»СѓС‡Р°Р№РЅРѕР№ РѕС€РёР±РєРё РІ GARCH
+
 mvid_spec_t <- ugarchspec(variance.model = list(model = 'sGARCH', garchOrder = c(1, 1)),
                           mean.model = list(armaOrder = c(2, 1), include.mean = FALSE),
                           distribution.model = 'std')
 mvid_model_t <- ugarchfit(spec = mvid_spec_t, data = df$MVID)
-# посмотрим на результаты оценивания
+
+# РїРѕСЃРјРѕС‚СЂРёРј РЅР° СЂРµР·СѓР»СЊС‚Р°С‚С‹ РѕС†РµРЅРёРІР°РЅРёСЏ
 mvid_model_t
-# сравним информационные критерии
+# СЃСЂР°РІРЅРёРј РёРЅС„РѕСЂРјР°С†РёРѕРЅРЅС‹Рµ РєСЂРёС‚РµСЂРёРё
 infocrit_df <- cbind(infocriteria(mvid_model), infocriteria(mvid_model_t))
 colnames(infocrit_df) <- c('GARCH(1, 1)',
                            'GARCH(1, 1) with T-errors')
 infocrit_df
-# модель с шоками из распределения Стьюдента лучше по всем информационным критериям
-# нарисуем квадраты доходностей (несмещённая оценка волатильности) и оценку волатильности, полученную в GARCH(1,1)
-# на графике видно, что в наиболее волатильные периоды спецификация с шоками, распределёнными по Стьюденту,
-# лучше предсказывает всплески волатильности
+# РјРѕРґРµР»СЊ СЃ С€РѕРєР°РјРё РёР· СЂР°СЃРїСЂРµРґРµР»РµРЅРёСЏ РЎС‚СЊСЋРґРµРЅС‚Р° Р»СѓС‡С€Рµ РїРѕ РІСЃРµРј РёРЅС„РѕСЂРјР°С†РёРѕРЅРЅС‹Рј РєСЂРёС‚РµСЂРёРµРј
+# РЅР°СЂРёСЃСѓРµРј РєРІР°РґСЂР°С‚С‹ РґРѕС…РѕРґРЅРѕСЃС‚РµР№ (РЅРµСЃРјРµС‰РµРЅРЅР°СЏ РѕС†РµРЅРєР° РІРѕР»Р°С‚РёР»СЊРЅРѕСЃС‚Рё) Рё РѕС†РµРЅРєСѓ РІРѕР»Р°С‚РёР»СЊРЅРѕСЃС‚Рё, РїРѕР»СѓС‡РµРЅРЅСѓСЋ РІ GARCH(1,1)
+# РЅР° РіСЂР°С„РёРєРµ РІРёРґРЅРѕ, С‡С‚Рѕ РІ РЅР°РёР±РѕР»РµРµ РІРѕР»Р°С‚РёР»СЊРЅС‹Рµ РїРµСЂРёРѕРґС‹ СЃРїРµС†РёС„РёРєР°С†РёРё СЃ С€РѕРєР°РјРё, СЂР°СЃРїСЂРµРґРµР»РµРЅРЅС‹РјРё РїРѕ вЂ”С‚СЊСЋРґРµРЅС‚Сѓ,
+# Р»СѓС‡С€Рµ РїСЂРµРґСЃРєР°Р·С‹РІР°РµС‚ РІСЃРїР»РµСЃРєРё РІРѕР»Р°С‚РёР»СЊРЅРѕСЃС‚Рё
 plot(x = df$TRADEDATE, y = (df$MVID)^2, ylim = c(0, 0.02),
      type = 'l', col = 'gray', lwd = 2,
-     main = 'Сравнение оценок волатильности', xlab = 'Дата', ylab = 'Оценка волатильности')
+     main = 'РЎСЂР°РІРЅРµРЅРёРµ РѕС†РµРЅРѕРє РІРѕР»Р°С‚РёР»СЊРЅРѕСЃС‚Рё', xlab = 'РґР°С‚Р°', ylab = 'РѕС†РµРЅРєР° РІРѕР»Р°С‚РёР»СЊРЅРѕСЃС‚Рё') 
 lines(x = df$TRADEDATE, y = mvid_model_t@fit$var, col = 'red', lwd = 2.5)
-lines(x = df$TRADEDATE, y = mvid_model@fit$var, col = 'green', lwd = 2)
+lines(x = df$TRADEDATE, y = mvid_model@fit$var, col = 'blue', lwd = 2)
 legend('topright',
-       legend = c('Квадрат доходностей', 'Оценка GARCH (нормальный)', 'Оценка GARCH (Стьюдент)'),
-       fill = c('gray', 'green', 'red'))
+       legend = c('РєРІР°РґСЂР°С‚ РґРѕС…РѕРґРЅРѕСЃС‚РµР№', 'РѕС†РµРЅРєР° GARCH (РЅРѕСЂРјР°Р»СЊРЅС‹Р№)', 'РѕС†РµРЅРєР° GARCH (РЎС‚СЊСЋРґРµРЅС‚)'),
+       fill = c('gray', 'blue', 'red'))
 
-# прогноз на 10 дней - сравним с оценённой волатильностью за последний квартал торгов
-# будем рисовать стандартные отклонения, так как у дисперсии слишком мелкий масштаб
+# РїСЂРѕРіРЅРѕР· РЅР° 10 РґРЅРµР№ - СЃСЂР°РІРЅРёРј СЃ РѕС†РµРЅРµРЅРЅРѕР№ РІРѕР»Р°С‚РёР»СЊРЅРѕСЃС‚СЊСЋ Р·Р° РїРѕСЃР»РµРґРЅРёР№ РєРІР°СЂС‚Р°Р» С‚РѕСЂРіРѕРІ
+# Р±СѓРґРµРј СЂРёСЃРѕРІР°С‚СЊ СЃС‚Р°РЅРґР°СЂС‚РЅС‹Рµ РѕС‚РєР»РѕРЅРµРЅРёСЏ, С‚Р°Рє РєР°Рє Сѓ РґРёСЃРїРµСЂСЃРёРё СЃР»РёС€РєРѕРј РјРµР»РєРёР№ РјР°СЃС€С‚Р°Р±
 mvid_t_fcst <- ugarchforecast(mvid_model_t, n_ahead = 10)
 var_fcst <- c(rep(NA, 60), mvid_t_fcst@forecast$sigmaFor)
 var_est <- c((tail(mvid_model_t@fit$var, 60))^(1 / 2), rep(NA, 10))
 plot(x = 1:70, y = var_est,
-     type = 'l', col = 'green', xlab = 'Дни',
-     main = 'Оценка стандартного отклонения за последний квартал и прогноз на 10 дней')
-lines(x = 1:70, y = var_fcst, col = 'red')
+     type = 'l', col = 'black', xlab = 'РґРЅРё',
+     main = 'РћС†РµРЅРєР° СЃС‚Р°РЅРґР°СЂС‚РЅРѕРіРѕ РѕС‚РєР»РѕРЅРµРЅРёСЏ Р·Р° РїРѕСЃР»РµРґРЅРёР№ РєРІР°СЂС‚Р°Р» Рё РїСЂРѕРіРЅРѕР· РЅР° 10 РґРЅРµР№')+
+lines(x = 1:70, y = var_fcst, col = 'red')+
 legend('topright',
-       legend = c('Оценка', 'Прогноз'),
-       fill = c('green', 'red'))
+       legend = c('РѕС†РµРЅРєР°', 'РїСЂРѕРіРЅРѕР·'),
+       fill = c('black', 'red'))
 
-#### и так для остальных эмитентов, а также тест Купика, скользящие прогнозы и VaR
+#### Рё С‚Р°Рє РґР»СЏ РѕСЃС‚Р°Р»СЊРЅС‹С… СЌРјРёС‚РµРЅС‚РѕРІ, Р° С‚Р°РєР¶Рµ С‚РµСЃС‚ РљСѓРїРёРєР°, СЃРєРѕР»СЊР·СЏС‰РёРµ РїСЂРѕРіРЅРѕР·С‹ Рё VaR
 
-# напишем функцию для теста Купика
-# тест проверяет, что число пробитий для VaR с конкретным уровнем доверия равно ожидаемому
-# например, для 683 наблюдений оценка 5% VaR должна давать примерно 683*0.05=34 пробития
-# тест проверяет, так ли это
-# аргументы функции: n_obs - число наблюдений в данных, на которых проводится тест
-# returns - истинные исторические доходности, VaR - прогнозные оценки VaR на исторических данных (бэктест)
-# confidence_level - уровень доверия в тесте
+# РЅР°РїРёС€РµРј С„СѓРЅРєС†РёСЋ РґР»СЏ С‚РµСЃС‚Р° РљСѓРїРёРєР°
+# С‚РµСЃС‚ РїСЂРѕРІРµСЂСЏРµС‚, С‡С‚Рѕ С‡РёСЃР»Рѕ РїСЂРѕР±РёС‚РёР№ РґР»СЏ VaR СЃ РєРѕРЅРєСЂРµС‚РЅС‹Рј СѓСЂРѕРІРЅРµРј РґРѕРІРµСЂРёСЏ СЂР°РІРЅРѕ РѕР¶РёРґР°РµРјРѕРјСѓ
+# РЅР°РїСЂРёРјРµСЂ, РґР»СЏ 683 РЅР°Р±Р»СЋРґРµРЅРёР№ РѕС†РµРЅРєР° 5% VaR РґРѕР»Р¶РЅР° РґР°РІР°С‚СЊ РїСЂРёРјРµСЂРЅРѕ 683*0.05=34 РїСЂРѕР±РёС‚РёСЏ
+# С‚РµСЃС‚ РїСЂРѕРІРµСЂСЏРµС‚, С‚Р°Рє Р»Рё СЌС‚Рѕ
+# Р°СЂРіСѓРјРµРЅС‚С‹ С„СѓРЅРєС†РёРё: n_obs - С‡РёСЃР»Рѕ РЅР°Р±Р»СЋРґРµРЅРёР№ РІ РґР°РЅРЅС‹С…, РЅР° РєРѕС‚РѕСЂС‹С… РїСЂРѕРІРѕРґРёС‚СЃСЏ С‚РµСЃС‚
+# returns - РёСЃС‚РёРЅРЅС‹Рµ РёСЃС‚РѕСЂРёС‡РµСЃРєРёРµ РґРѕС…РѕРґРЅРѕСЃС‚Рё, VaR - РїСЂРѕРіРЅРѕР·РЅС‹Рµ РѕС†РµРЅРєРё VaR РЅР° РёСЃС‚РѕСЂРёС‡РµСЃРєРёС… РґР°РЅРЅС‹С… (Р±СЌРєС‚РµСЃС‚)
+# confidence_level - СѓСЂРѕРІРµРЅСЊ РґРѕРІРµСЂРёСЏ РІ С‚РµСЃС‚Рµ
+
 kupiec_test <- function(n_obs, returns, VaR, confidence_level) {
   L <- n_obs
   K <- sum(returns < VaR)
@@ -191,11 +259,11 @@ plot_corr <- function(data,
                                 window = window,
                                 main_ticker = main_ticker,
                                 other_tickers = other_tickers),
-                main = paste0('Скользящая ',
+                main = paste0('РЎРєРѕР»СЊР·СЏС‰Р°СЏ ',
                               toString(window),
-                              '-дневная корреляция ',
+                              '-РґРЅРµРІРЅР°СЏ РєРѕСЂСЂРµР»СЏС†РёСЏ ',
                               main_ticker),
-                legend.loc = "bottomleft",
+                legend.loc = "topleft",
                 auto.legend = TRUE)
   return(p)
   
@@ -205,60 +273,60 @@ p1 <- plot_corr(mdf_ts, 126, 'FIVE', c('MGNT', 'LNTA', 'MVID'))
 p2 <- plot_corr(mdf_ts, 126, 'MGNT', c('FIVE', 'LNTA', 'MVID'))
 p3 <- plot_corr(mdf_ts, 126, 'LNTA', c('FIVE', 'MGNT', 'MVID'))
 
-# нарисуем скользящие полугодовые корреляции для всех эмитентов
+# РЅР°СЂРёСЃСѓРµРј СЃРєРѕР»СЊР·СЏС‰РёРµ РїРѕР»СѓРіРѕРґРѕРІС‹Рµ РєРѕСЂСЂРµР»СЏС†РёРё РґР»СЏ РІСЃРµС… СЌРјРёС‚РµРЅС‚РѕРІ
 par(mfrow = c(3, 1))
 p1
 p2
 p3
 par(mfrow = c(1, 1))
 
-# нарисуем график для отчёта
+# РЅР°СЂРёСЃСѓРµРј РіСЂР°С„РёРє РґР»СЏ РѕС‚С‡РµС‚Р°
 par(mfrow = c(2, 1), mar = c(2, 3, 2, 3))
 plot(index(mdf_ts),
      rolling_corr(mdf_ts, 126, c('MGNT', 'FIVE')),
      type = 'l',
-     col = '#b22222',
+     col = 'red',
      ylim = c(-0.1, 0.8),
-     xlab = 'Время',
-     ylab = 'Корреляция',
+     xlab = 'Р’СЂРµРјСЏ',
+     ylab = 'РљРѕСЂСЂРµР»СЏС†РёСЏ',
      main = '')
 lines(index(mdf_ts),
       rolling_corr(mdf_ts, 126, c('LNTA', 'FIVE')),
       col = 'black')
 lines(index(mdf_ts),
       rolling_corr(mdf_ts, 126, c('LNTA', 'MGNT')),
-      col = 'lightblue', lwd = 2)
+      col = 'blue')
 legend('topleft',
        cex = 0.7,
        #box.col = 'white',
        #text.font=12,
-       legend = c('FIVE и MGNT',
-                  'FIVE и LNTA',
-                  'MGNT и LNTA'),
-       fill = c('#b22222', 'black', 'lightblue'))
-# теперь то же самое для М.Видео
+       legend = c('FIVE Рё MGNT',
+                  'FIVE Рё LNTA',
+                  'MGNT Рё LNTA'),
+       fill = c('red', 'black', 'blue'))
+# С‚РµРїРµСЂСЊ С‚Рѕ Р¶Рµ СЃР°РјРѕРµ РґР»СЏ С›.В¬РёРґРµРѕ
 plot(index(mdf_ts),
      rolling_corr(mdf_ts, 126, c('MVID', 'FIVE')),
      type = 'l',
-     col = '#b22222',
+     col = 'red',
      ylim = c(-0.1, 0.4),
-     xlab = 'Время',
-     ylab = 'Корреляция',
+     xlab = 'Р’СЂРµРјСЏ',
+     ylab = 'РљРѕСЂСЂРµР»СЏС†РёСЏ',
      main = '')
 lines(index(mdf_ts),
       rolling_corr(mdf_ts, 126, c('MVID', 'MGNT')),
       col = 'black')
 lines(index(mdf_ts),
       rolling_corr(mdf_ts, 126, c('MVID', 'LNTA')),
-      col = 'lightblue', lwd = 2)
+      col = 'blue')
 legend('topleft',
        cex = 0.7,
        #box.col = 'white',
        #text.font=12,
-       legend = c('MVID и FIVE',
-                  'MVID и MGNT',
-                  'MVID и LNTA'),
-       fill = c('#b22222', 'black', 'lightblue'))
+       legend = c('MVID Рё FIVE',
+                  'MVID Рё MGNT',
+                  'MVID Рё LNTA'),
+       fill = c('red', 'black', 'blue'))
 
 par(mfrow = c(1, 1))
 # DCC-GARCH
@@ -268,7 +336,7 @@ par(mfrow = c(1, 1))
 # first we shall select individual mean models for the period between 2018 and 2020 for each stock
 plot_acf <- function(series, series_name) {
   p <- ggAcf(series) +
-    ggtitle(paste0("Выборочная ACF для ", series_name)) +
+    ggtitle(paste0("В¬С‹Р±РѕСЂРѕС‡РЅР°СЏ ACF РґР»СЏ ", series_name)) +
     xlab("Lag") +
     ylab("ACF") +
     theme(plot.title = element_text(hjust = 0.5))
@@ -278,7 +346,7 @@ plot_acf <- function(series, series_name) {
 
 plot_pacf <- function(series, series_name) {
   p <- ggPacf(series) +
-    ggtitle(paste0("Выборочная PACF для ", series_name)) +
+    ggtitle(paste0("В¬С‹Р±РѕСЂРѕС‡РЅР°СЏ PACF РґР»СЏ ", series_name)) +
     xlab("Lag") +
     ylab("PACF") +
     theme(plot.title = element_text(hjust = 0.5))
@@ -297,11 +365,14 @@ p8 <- plot_pacf(mdf_ts$MVID, 'MVID')
 
 grid.arrange(p1, p2, p3, p4, p5, p6, p7, p8,
              nrow = 4,
-             top = textGrob('Выборочные ACF и PACF 2018-2021',
+             top = textGrob('Р’С‹Р±РѕСЂРѕС‡РЅС‹Рµ ACF Рё PACF 2018-2021',
                             gp = gpar(fontsize = 18)))
 
 # we see that all series nave no statistically significant sample ACF and PACF values
 # and have zero mean, so the appropriate mean model is ARIMA(0,0,0)
+
+
+
 
 # DCC-GARCH model itself
 uspec_n <- multispec(replicate(4, ugarchspec(variance.model = list(model = 'sGARCH', garchOrder = c(1, 1)),
@@ -310,6 +381,10 @@ uspec_n <- multispec(replicate(4, ugarchspec(variance.model = list(model = 'sGAR
 multifit <- multifit(uspec_n, mdf_ts)
 multifit@fit
 multifit_fit <- multifit@fit
+
+
+
+
 # on 10% level Ljung-Box H0 of no autocorrelation of residuals is not rejected for all univariate models
 # specify DCC model with Student multivariate distribution and (1,1) conditional correlation order
 dcc_spec <- dccspec(uspec = uspec_n,
@@ -322,41 +397,43 @@ dcc_fit <- dccfit(spec = dcc_spec,
                   fit = multifit)
 # check that GARCH coefficents are the same as in the univariate models
 dcc_fit
-# вытащим оценки коэффициентов и стандартные ошибки
+# РІС‹С‚Р°С‰РёРј РѕС†РµРЅРєРё РєРѕСЌС„С„РёС†РёРµРЅС‚РѕРІ Рё СЃС‚Р°РЅРґР°СЂС‚РЅС‹Рµ РѕС€РёР±РєРё
 dcc_coef <- slot(dcc_fit, 'mfit')[['matcoef']]
 dcc_coef
 
-# информационные критерии
+# РёРЅС„РѕСЂРјР°С†РёРѕРЅРЅС‹Рµ РєСЂРёС‚РµСЂРёРё
 infocriteria(dcc_fit)
 
 # we see that dcca1 is significant only at 10% level, and coefficient for unconditional covariance matrix is 1-.01-.07
 # (only dccb1 significant value indicates that conditional correlation shall decline over time)
 # let's test hypothesis of constant correlation
+
 DCCtest(mdf_ts, garchOrder = c(1, 1), n.lags = 1, solver = "solnp",
         solver.control = list(), cluster = NULL, Z = NULL)
-# Нулевая гипотеза теста: корреляционная матрица не меняется с течением времени
-# p-value гипотезы 0.034, то есть она отвергается на 5% и 10% уровне значимости
-# источник теста:
+
+# РќСѓР»РµРІР°СЏ РіРёРїРѕС‚РµР·Р° С‚РµСЃС‚Р°: РєРѕСЂСЂРµР»СЏС†РёРѕРЅРЅР°СЏ РјР°С‚СЂРёС†Р° РЅРµ РјРµРЅСЏРµС‚СЃСЏ СЃ С‚РµС‡РµРЅРёРµРј РІСЂРµРјРµРЅРё
+# p-value РіРёРїРѕС‚РµР·С‹ 0.034, С‚Рѕ РµСЃС‚СЊ РѕРЅР° РѕС‚РІРµСЂРіР°РµС‚СЃСЏ РЅР° 5% Рё 10% СѓСЂРѕРІРЅРµ Р·РЅР°С‡РёРјРѕСЃС‚Рё
+# РёСЃС‚РѕС‡РЅРёРє С‚РµСЃС‚Р°:
 # Engle, R.F. and Sheppard, K. 2001, Theoretical and empirical properties of dynamic conditional correlation multivariate GARCH, NBER Working Paper
 
-# посмотрим на условные ковариации, оценённые внутри модели
+# РїРѕСЃРјРѕС‚СЂРёРј РЅР° СѓСЃР»РѕРІРЅС‹Рµ РєРѕРІР°СЂРёР°С†РёРё, РѕС†РµРЅР„РЅРЅС‹Рµ РІРЅСѓС‚СЂРё РјРѕРґРµР»Рё
 dcc_cov <- rcov(dcc_fit)
 dcc_corr <- rcor(dcc_fit)
-# этот объект содержит ковариацонную матрицу для каждой даты торгов
+# СЌС‚РѕС‚ РѕР±СЉРµРєС‚ СЃРѕРґРµСЂР¶РёС‚ РєРѕРІР°СЂРёР°С†РѕРЅРЅСѓСЋ РјР°С‚СЂРёС†Сѓ РґР»СЏ РєР°Р¶РґРѕР№ РґР°С‚С‹ С‚РѕСЂРіРѕРІ
 dim(dcc_cov)
-# посмотрим на матрицу для последней даты, для которой имеются наблюдения в наборе данных
+# РїРѕСЃРјРѕС‚СЂРёРј РЅР° РјР°С‚СЂРёС†Сѓ РґР»СЏ РїРѕСЃР»РµРґРЅРµР№ РґР°С‚С‹, РґР»СЏ РєРѕС‚РѕСЂРѕР№ РёРјРµСЋС‚СЃСЏ РЅР°Р±Р»СЋРґРµРЅРёСЏ РІ РЅР°Р±РѕСЂРµ РґР°РЅРЅС‹С…
 dcc_corr[, , dim(dcc_corr)[3]]
-# например, мы заинтересованы в оценке корреляции между MGNT and FIVE -> ряд 1, столбец 2
+# РЅР°РїСЂРёРјРµСЂ, РјС‹ Р·Р°РёРЅС‚РµСЂРµСЃРѕРІР°РЅС‹ РІ РѕС†РµРЅРєРµ РєРѕСЂСЂРµР»СЏС†РёРё РјРµР¶РґСѓ MGNT and FIVE -> СЂСЏРґ 1, СЃС‚РѕР»Р±РµС† 2
 cor_fm <- dcc_corr[1, 2,]
 cor_fm <- as.xts(cor_fm)
 plot(cor_fm,
      type = 'l',
      main = 'Conditional correlation between FIVE and MGNT')
 
-# объединим данные, чтобы сравнить скользящие корреляции и оценённые моделью, хотя это не одно и то же
+# РѕР±СЉРµРґРёРЅРёРј РґР°РЅРЅС‹Рµ, С‡С‚РѕР±С‹ СЃСЂР°РІРЅРёС‚СЊ СЃРєРѕР»СЊР·СЏС‰РёРµ РєРѕСЂСЂРµР»СЏС†РёРё Рё РѕС†РµРЅР„РЅРЅС‹Рµ РјРѕРґРµР»СЊСЋ, С…РѕС‚СЏ СЌС‚Рѕ РЅРµ РѕРґРЅРѕ Рё С‚Рѕ Р¶Рµ
 rolling_five_q <- rolling_corr(mdf_ts, 63, c('FIVE', 'MGNT'))
 rolling_five_m <- rolling_corr(mdf_ts, 21, c('FIVE', 'MGNT'))
-# поскольку почему-то в данных появляются разные часы, уберём это с помощью to.daily
+# РїРѕСЃРєРѕР»СЊРєСѓ РїРѕС‡РµРјСѓ-С‚Рѕ РІ РґР°РЅРЅС‹С… РїРѕСЏРІР»СЏСЋС‚СЃСЏ СЂР°Р·РЅС‹Рµ С‡Р°СЃС‹, СѓР±РµСЂР„Рј СЌС‚Рѕ СЃ РїРѕРјРѕС‰СЊСЋ to.daily
 merged <- merge.xts(to.daily(cor_fm, OHLC = FALSE),
                     to.daily(rolling_five_q, OHLC = FALSE),
                     to.daily(rolling_five_m, OHLC = FALSE),
@@ -369,33 +446,33 @@ colnames(merged) <- c('Model',
 plot(merged$Model,
      type = 'l',
      ylim = c(-.7, .9),
-     main = 'Различные корреляции между FIVE и MGNT')
+     main = 'вЂ“Р°Р·Р»РёС‡РЅС‹Рµ РєРѕСЂСЂРµР»СЏС†РёРё РјРµР¶РґСѓ FIVE Рё MGNT')
 lines(merged$`Rolling 21-day window`, col = 'red')
 lines(merged$`Rolling 63-day window`, col = 'lightblue', lwd = 2)
-# поскольку объект xts, у него свой способ добавления легенды, который связан с legend в base
+# РїРѕСЃРєРѕР»СЊРєСѓ РѕР±СЉРµРєС‚ xts, Сѓ РЅРµРіРѕ СЃРІРѕР№ СЃРїРѕСЃРѕР± РґРѕР±Р°РІР»РµРЅРёСЏ Р»РµРіРµРЅРґС‹, РєРѕС‚РѕСЂС‹Р№ СЃРІСЏР·Р°РЅ СЃ legend РІ base
 addLegend('bottomright',
           #lty = 1, lwd = 1,
-          legend.names = c('Модель',
-                           'Скользящее 21-дневное окно',
-                           'Скользящее 63-дневное окно'),
+          legend.names = c('С›РѕРґРµР»СЊ',
+                           'вЂ”РєРѕР»СЊР·СЏС‰РµРµ 21-РґРЅРµРІРЅРѕРµ РѕРєРЅРѕ',
+                           'вЂ”РєРѕР»СЊР·СЏС‰РµРµ 63-РґРЅРµРІРЅРѕРµ РѕРєРЅРѕ'),
           fill = c('black', 'red', 'lightblue'),
           bg = "white",
           bty = "o")
 
-# посмотрим на корреляцию М.Видео с X5
+# РїРѕСЃРјРѕС‚СЂРёРј РЅР° РєРѕСЂСЂРµР»СЏС†РёСЋ С›.В¬РёРґРµРѕ СЃ X5
 cor_mvid <- dcc_corr[1, 4,]
 cor_mvid <- as.xts(cor_mvid)
 plot(cor_mvid,
      type = 'l',
      main = 'Conditional correlation between FIVE and MVID')
 
-# теперь нас интересуют прогнозы корреляций на 10 дней вперёд
+# С‚РµРїРµСЂСЊ РЅР°СЃ РёРЅС‚РµСЂРµСЃСѓСЋС‚ РїСЂРѕРіРЅРѕР·С‹ РєРѕСЂСЂРµР»СЏС†РёР№ РЅР° 10 РґРЅРµР№ РІРїРµСЂР„Рґ
 dcc_forecast <- dccforecast(dcc_fit, n.ahead = 10)
 dcc_forecast
 corr_forecast <- dcc_forecast@mforecast$R
-# это трёхмерная матрица с прогнозами
+# СЌС‚Рѕ С‚СЂР„С…РјРµСЂРЅР°СЏ РјР°С‚СЂРёС†Р° СЃ РїСЂРѕРіРЅРѕР·Р°РјРё
 str(corr_forecast)
-# нарисуем последние оценки корреляции и прогноз
+# РЅР°СЂРёСЃСѓРµРј РїРѕСЃР»РµРґРЅРёРµ РѕС†РµРЅРєРё РєРѕСЂСЂРµР»СЏС†РёРё Рё РїСЂРѕРіРЅРѕР·
 plot_corr_fcst <- function(fit,
                            n_estimates,
                            n_ahead,
@@ -412,15 +489,15 @@ plot_corr_fcst <- function(fit,
                 rep(NA, 10))
   
   plot(x = 1:70, y = corr_est,
-       type = 'l', col = 'green', xlab = 'Дни',
-       main = paste0('Оценка корреляции ',
+       type = 'l', col = 'green', xlab = 'Ж’РЅРё',
+       main = paste0('СњС†РµРЅРєР° РєРѕСЂСЂРµР»СЏС†РёРё ',
                      first_ticker,
-                     ' и ',
+                     ' Рё ',
                      second_ticker,
-                     ' за последний квартал и прогноз на 10 дней'))
+                     ' Р·Р° РїРѕСЃР»РµРґРЅРёР№ РєРІР°СЂС‚Р°Р» Рё РїСЂРѕРіРЅРѕР· РЅР° 10 РґРЅРµР№'))
   lines(x = 1:70, y = corr_fcst, col = 'red')
   legend('bottomright',
-         legend = c('Оценка', 'Прогноз'),
+         legend = c('СњС†РµРЅРєР°', 'С•СЂРѕРіРЅРѕР·'),
          fill = c('green', 'red'))
 }
 
@@ -429,19 +506,19 @@ plot_corr_fcst(dcc_fit, 60, 10, 1, 2, 'FIVE', 'MGNT')
 plot_corr_fcst(dcc_fit, 60, 10, 1, 3, 'FIVE', 'LNTA')
 plot_corr_fcst(dcc_fit, 60, 10, 2, 3, 'MGNT', 'LNTA')
 par(mfrow = c(1, 1))
-# посмотрим на М.Видео отдельно
+# РїРѕСЃРјРѕС‚СЂРёРј РЅР° С›.В¬РёРґРµРѕ РѕС‚РґРµР»СЊРЅРѕ
 plot_corr_fcst(dcc_fit, 60, 10, 1, 4, 'FIVE', 'MVID')
-# поскольку М.Видео меньше всего связан с другими эмитентами,
-# возможно, имеет смысл для него использовать постоянные корреляции
-# протестируем значимость выборочной корреляции между М.Видео и остальными акциями
+# РїРѕСЃРєРѕР»СЊРєСѓ С›.В¬РёРґРµРѕ РјРµРЅСЊС€Рµ РІСЃРµРіРѕ СЃРІСЏР·Р°РЅ СЃ РґСЂСѓРіРёРјРё СЌРјРёС‚РµРЅС‚Р°РјРё,
+# РІРѕР·РјРѕР¶РЅРѕ, РёРјРµРµС‚ СЃРјС‹СЃР» РґР»СЏ РЅРµРіРѕ РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊ РїРѕСЃС‚РѕСЏРЅРЅС‹Рµ РєРѕСЂСЂРµР»СЏС†РёРё
+# РїСЂРѕС‚РµСЃС‚РёСЂСѓРµРј Р·РЅР°С‡РёРјРѕСЃС‚СЊ РІС‹Р±РѕСЂРѕС‡РЅРѕР№ РєРѕСЂСЂРµР»СЏС†РёРё РјРµР¶РґСѓ С›.В¬РёРґРµРѕ Рё РѕСЃС‚Р°Р»СЊРЅС‹РјРё Р°РєС†РёСЏРјРё
 cormat_test <- rcorr(mdf_ts, type = c('pearson'))
-# сами корреляции
+# СЃР°РјРё РєРѕСЂСЂРµР»СЏС†РёРё
 cormat_test$r
 # p-values
 cormat_test$P
-# что интересно, на 10% уровне корреляции между М.Видео и остальными значимы
-# на уровне 5% значимы корреляции М.Видео с Лентой и X5 Retail Group
-# поэтому оставим всё как есть
+# С‡С‚Рѕ РёРЅС‚РµСЂРµСЃРЅРѕ, РЅР° 10% СѓСЂРѕРІРЅРµ РєРѕСЂСЂРµР»СЏС†РёРё РјРµР¶РґСѓ С›.В¬РёРґРµРѕ Рё РѕСЃС‚Р°Р»СЊРЅС‹РјРё Р·РЅР°С‡РёРјС‹
+# РЅР° СѓСЂРѕРІРЅРµ 5% Р·РЅР°С‡РёРјС‹ РєРѕСЂСЂРµР»СЏС†РёРё С›.В¬РёРґРµРѕ СЃ Р‹РµРЅС‚РѕР№ Рё X5 Retail Group
+# РїРѕСЌС‚РѕРјСѓ РѕСЃС‚Р°РІРёРј РІСЃР„ РєР°Рє РµСЃС‚СЊ
 
 # VaR
 portfolio_variance <- function(w, cov_mat) {
@@ -455,26 +532,26 @@ equal_weights <- function(n_assets) {
   return(rep(1 / n_assets, n_assets))
 }
 
-# также нам нужно многомерное распределение Стьюдента
-# по результатам оценивания модели DCC-GARCH, у совместного распределения 5.96~6 степеней свободы
-# проведём бэктест модели
-# сколько наблюдений взять для бэктеста? Допустим, мы оцениваем модель на полугодовых данных
-# скользящее окно - 126 наблюдений, в нашем датасете 810 наблюдений
-# следующая строчка кода выполняется приблизительно 12 мин, поэтому не следует её запускать без лишней надобности
+# С‚Р°РєР¶Рµ РЅР°Рј РЅСѓР¶РЅРѕ РјРЅРѕРіРѕРјРµСЂРЅРѕРµ СЂР°СЃРїСЂРµРґРµР»РµРЅРёРµ вЂ”С‚СЊСЋРґРµРЅС‚Р°
+# РїРѕ СЂРµР·СѓР»СЊС‚Р°С‚Р°Рј РѕС†РµРЅРёРІР°РЅРёСЏ РјРѕРґРµР»Рё DCC-GARCH, Сѓ СЃРѕРІРјРµСЃС‚РЅРѕРіРѕ СЂР°СЃРїСЂРµРґРµР»РµРЅРёСЏ 5.96~6 СЃС‚РµРїРµРЅРµР№ СЃРІРѕР±РѕРґС‹
+# РїСЂРѕРІРµРґР„Рј Р±СЌРєС‚РµСЃС‚ РјРѕРґРµР»Рё
+# СЃРєРѕР»СЊРєРѕ РЅР°Р±Р»СЋРґРµРЅРёР№ РІР·СЏС‚СЊ РґР»СЏ Р±СЌРєС‚РµСЃС‚Р°? Ж’РѕРїСѓСЃС‚РёРј, РјС‹ РѕС†РµРЅРёРІР°РµРј РјРѕРґРµР»СЊ РЅР° РїРѕР»СѓРіРѕРґРѕРІС‹С… РґР°РЅРЅС‹С…
+# СЃРєРѕР»СЊР·СЏС‰РµРµ РѕРєРЅРѕ - 126 РЅР°Р±Р»СЋРґРµРЅРёР№, РІ РЅР°С€РµРј РґР°С‚Р°СЃРµС‚Рµ 810 РЅР°Р±Р»СЋРґРµРЅРёР№
+# СЃР»РµРґСѓСЋС‰Р°СЏ СЃС‚СЂРѕС‡РєР° РєРѕРґР° РІС‹РїРѕР»РЅСЏРµС‚СЃСЏ РїСЂРёР±Р»РёР·РёС‚РµР»СЊРЅРѕ 12 РјРёРЅ, РїРѕСЌС‚РѕРјСѓ РЅРµ СЃР»РµРґСѓРµС‚ РµР„ Р·Р°РїСѓСЃРєР°С‚СЊ Р±РµР· Р»РёС€РЅРµР№ РЅР°РґРѕР±РЅРѕСЃС‚Рё
 backtest_rolling <- dccroll(dcc_spec,
                             mdf_ts,
-                            n.ahead = 1, # прогноз на 1 период вперёд
+                            n.ahead = 1, # РїСЂРѕРіРЅРѕР· РЅР° 1 РїРµСЂРёРѕРґ РІРїРµСЂР„Рґ
                             #forecast.length = 50,
                             refit.every = 1,
-                            n.start = 127, # альтернатива forecast_length
+                            n.start = 127, # Р°Р»СЊС‚РµСЂРЅР°С‚РёРІР° forecast_length
                             refit.window = c("moving"),
                             window.size = 126,
                             solver = "solnp",
                             fit.control = list(eval.se = TRUE))
 
-# нас в первую очередь интересуют оценки ковариационной матрицы
-# backtest_rolling@mforecast - список из 683 элементов, и из каждого надо достать прогноз
-# посмотрим на ковариацонную матрицу для первого дня прогноза
+# РЅР°СЃ РІ РїРµСЂРІСѓСЋ РѕС‡РµСЂРµРґСЊ РёРЅС‚РµСЂРµСЃСѓСЋС‚ РѕС†РµРЅРєРё РєРѕРІР°СЂРёР°С†РёРѕРЅРЅРѕР№ РјР°С‚СЂРёС†С‹
+# backtest_rolling@mforecast - СЃРїРёСЃРѕРє РёР· 683 СЌР»РµРјРµРЅС‚РѕРІ, Рё РёР· РєР°Р¶РґРѕРіРѕ РЅР°РґРѕ РґРѕСЃС‚Р°С‚СЊ РїСЂРѕРіРЅРѕР·
+# РїРѕСЃРјРѕС‚СЂРёРј РЅР° РєРѕРІР°СЂРёР°С†РѕРЅРЅСѓСЋ РјР°С‚СЂРёС†Сѓ РґР»СЏ РїРµСЂРІРѕРіРѕ РґРЅСЏ РїСЂРѕРіРЅРѕР·Р°
 example_forecast <- backtest_rolling@mforecast[[1]]@mforecast$H
 example_forecast
 
@@ -482,18 +559,24 @@ cov_list <- list()
 for (i in 1:length(backtest_rolling@mforecast)) {
   cov_list[[i]] <- backtest_rolling@mforecast[[i]]@mforecast$H
 }
-# рассчитаем дисперсию всего портфеля
+
+
+
+# СЂР°СЃСЃС‡РёС‚Р°РµРј РґРёСЃРїРµСЂСЃРёСЋ РІСЃРµРіРѕ РїРѕСЂС‚С„РµР»СЏ
 portfolio_vars <- c()
 for (i in 1:length(cov_list)) {
   portfolio_vars[i] <- portfolio_variance(equal_weights(4), cov_list[[i]])
 }
-# нарисуем оценки стандартного отклонения, полученные в ходе бэктеста
+
+
+
+# РЅР°СЂРёСЃСѓРµРј РѕС†РµРЅРєРё СЃС‚Р°РЅРґР°СЂС‚РЅРѕРіРѕ РѕС‚РєР»РѕРЅРµРЅРёСЏ, РїРѕР»СѓС‡РµРЅРЅС‹Рµ РІ С…РѕРґРµ Р±СЌРєС‚РµСЃС‚Р°
 plot(y = (portfolio_vars)**(1 / 2) * -1,
      x = tail(index(mdf_ts), 683),
      ylim = c(-0.05, 0.05),
      type = 'l',
-     main = 'Оценка волатильности портфеля по модели DCC-GARCH',
-     xlab = 'Время',
+     main = 'СњС†РµРЅРєР° РІРѕР»Р°С‚РёР»СЊРЅРѕСЃС‚Рё РїРѕСЂС‚С„РµР»СЏ РїРѕ РјРѕРґРµР»Рё DCC-GARCH',
+     xlab = 'В¬СЂРµРјСЏ',
      ylab = '',
      lwd = 2)
 lines(y = rowSums(tail(mdf_ts, 683) * equal_weights(4)),
@@ -515,38 +598,38 @@ legend('topleft',
        cex = 1,
        #box.col = 'white',
        #text.font=12,
-       legend = c('Доходность портфеля',
-                  'Прогноз стандартного отклонения на 1 период',
+       legend = c('Ж’РѕС…РѕРґРЅРѕСЃС‚СЊ РїРѕСЂС‚С„РµР»СЏ',
+                  'С•СЂРѕРіРЅРѕР· СЃС‚Р°РЅРґР°СЂС‚РЅРѕРіРѕ РѕС‚РєР»РѕРЅРµРЅРёСЏ РЅР° 1 РїРµСЂРёРѕРґ',
                   '5% Value at Risk',
                   '1% Value at Risk'),
        fill = c('gray', 'black', 'red', 'lightblue'))
 
-# посчитаем число пробитий и проведём тест Купика, H0 - число пробитий совпадает с ожидаемым
+# РїРѕСЃС‡РёС‚Р°РµРј С‡РёСЃР»Рѕ РїСЂРѕР±РёС‚РёР№ Рё РїСЂРѕРІРµРґР„Рј С‚РµСЃС‚ В СѓРїРёРєР°, H0 - С‡РёСЃР»Рѕ РїСЂРѕР±РёС‚РёР№ СЃРѕРІРїР°РґР°РµС‚ СЃ РѕР¶РёРґР°РµРјС‹Рј
 var_est_1 <- (portfolio_vars)**(1 / 2) *
   qdist(distribution = 'std', shape = 5.96, p = 0.01)
 var_est_5 <- (portfolio_vars)**(1 / 2) *
   qdist(distribution = 'std', shape = 5.96, p = 0.05)
 test <- rowSums(tail(mdf_ts, 683) * equal_weights(4))
 
-print(paste0('Ожидаемое число пробитий 5% VaR ',
+print(paste0('СњР¶РёРґР°РµРјРѕРµ С‡РёСЃР»Рѕ РїСЂРѕР±РёС‚РёР№ 5% VaR ',
              683 * 0.05,
-             ', фактическое ',
+             ', С„Р°РєС‚РёС‡РµСЃРєРѕРµ ',
              sum(test < var_est_5)))
-print(paste0('Ожидаемое число пробитий 1% VaR ',
+print(paste0('СњР¶РёРґР°РµРјРѕРµ С‡РёСЃР»Рѕ РїСЂРѕР±РёС‚РёР№ 1% VaR ',
              683 * 0.01,
-             ', фактическое ',
+             ', С„Р°РєС‚РёС‡РµСЃРєРѕРµ ',
              sum(test < var_est_1)))
 
-# для 1% VaR наблюдаем пробитий (ожидали 7), для 5% VaR пробитий (ожидали )
-# проведём тест Купика для бэктеста, используем скользящие прогнозы на 1 период вперёд
+# РґР»СЏ 1% VaR РЅР°Р±Р»СЋРґР°РµРј РїСЂРѕР±РёС‚РёР№ (РѕР¶РёРґР°Р»Рё 7), РґР»СЏ 5% VaR РїСЂРѕР±РёС‚РёР№ (РѕР¶РёРґР°Р»Рё )
+# РїСЂРѕРІРµРґР„Рј С‚РµСЃС‚ В СѓРїРёРєР° РґР»СЏ Р±СЌРєС‚РµСЃС‚Р°, РёСЃРїРѕР»СЊР·СѓРµРј СЃРєРѕР»СЊР·СЏС‰РёРµ РїСЂРѕРіРЅРѕР·С‹ РЅР° 1 РїРµСЂРёРѕРґ РІРїРµСЂР„Рґ
 kupiec_test(683, test, var_est_1, 0.01)
 kupiec_test(683, test, var_est_5, 0.05)
-# на уровне 5% p-value теста 82%, на уровне 1% p-value 42%
-# при любых уровнях значимости гипотеза о некорректной модели VaR отвергается
+# РЅР° СѓСЂРѕРІРЅРµ 5% p-value С‚РµСЃС‚Р° 82%, РЅР° СѓСЂРѕРІРЅРµ 1% p-value 42%
+# РїСЂРё Р»СЋР±С‹С… СѓСЂРѕРІРЅСЏС… Р·РЅР°С‡РёРјРѕСЃС‚Рё РіРёРїРѕС‚РµР·Р° Рѕ РЅРµРєРѕСЂСЂРµРєС‚РЅРѕР№ РјРѕРґРµР»Рё VaR РѕС‚РІРµСЂРіР°РµС‚СЃСЏ
 
-# сохраним оценки волатильности из многомерной модели в эксель
+# СЃРѕС…СЂР°РЅРёРј РѕС†РµРЅРєРё РІРѕР»Р°С‚РёР»СЊРЅРѕСЃС‚Рё РёР· РјРЅРѕРіРѕРјРµСЂРЅРѕР№ РјРѕРґРµР»Рё РІ СЌРєСЃРµР»СЊ
 
-# создадим эксель-файл для сохранения табличек с результатами
+# СЃРѕР·РґР°РґРёРј СЌРєСЃРµР»СЊ-С„Р°Р№Р» РґР»СЏ СЃРѕС…СЂР°РЅРµРЅРёСЏ С‚Р°Р±Р»РёС‡РµРє СЃ СЂРµР·СѓР»СЊС‚Р°С‚Р°РјРё
 fname <- 'dcc_garch.xlsx'
 excel <- createWorkbook(fname)
 # add seet to excel file
@@ -562,14 +645,14 @@ thirdSheet <- 'DCC-GARCH infocriteria'
 addWorksheet(excel, thirdSheet)
 writeData(excel, sheet = 3, infocriteria(dcc_fit), rowNames = TRUE)
 
-# проведём тест Льюнга-Бокса для стандартизированных остатков и их квадратов
+# РїСЂРѕРІРµРґР„Рј С‚РµСЃС‚ Р‹СЊСЋРЅРіР°-Р…РѕРєСЃР° РґР»СЏ СЃС‚Р°РЅРґР°СЂС‚РёР·РёСЂРѕРІР°РЅРЅС‹С… РѕСЃС‚Р°С‚РєРѕРІ Рё РёС… РєРІР°РґСЂР°С‚РѕРІ
 residuals_list <- list()
 for (i in 1:4) { residuals_list[[i]] <- residuals(multifit@fit[[i]],
                                                   standardize = TRUE) }
 for (i in 1:4) {
   print(Box.test(residuals_list[[i]]**2,
                  lag = 1, type = c("Ljung-Box"), fitdf = 0)) }
-# сохраним в файл результаты тестирования значимости выборочных корреляций
+# СЃРѕС…СЂР°РЅРёРј РІ С„Р°Р№Р» СЂРµР·СѓР»СЊС‚Р°С‚С‹ С‚РµСЃС‚РёСЂРѕРІР°РЅРёСЏ Р·РЅР°С‡РёРјРѕСЃС‚Рё РІС‹Р±РѕСЂРѕС‡РЅС‹С… РєРѕСЂСЂРµР»СЏС†РёР№
 fourthSheet <- 'corr matrix'
 addWorksheet(excel, fourthSheet)
 writeData(excel, sheet = 4, cormat_test$r, rowNames = TRUE)
@@ -578,7 +661,7 @@ fifthSheet <- 'corr matrix p-values'
 addWorksheet(excel, fifthSheet)
 writeData(excel, sheet = 5, cormat_test$P, rowNames = TRUE)
 
-# сохраним оценки Value at Risk и волатильности
+# СЃРѕС…СЂР°РЅРёРј РѕС†РµРЅРєРё Value at Risk Рё РІРѕР»Р°С‚РёР»СЊРЅРѕСЃС‚Рё
 sixSheet <- 'conditional vol and VaR'
 addWorksheet(excel, sixSheet)
 
@@ -590,7 +673,7 @@ writeData(excel, sheet = 6, vars_and_vols, rowNames = TRUE)
 
 saveWorkbook(excel, file = fname, overwrite = TRUE)
 
-# тажке нас просят посчитать прогноз Value at Risk - сделаем на один период вперёд
+# С‚Р°Р¶РєРµ РЅР°СЃ РїСЂРѕСЃСЏС‚ РїРѕСЃС‡РёС‚Р°С‚СЊ РїСЂРѕРіРЅРѕР· Value at Risk - СЃРґРµР»Р°РµРј РЅР° РѕРґРёРЅ РїРµСЂРёРѕРґ РІРїРµСЂР„Рґ
 dcc_forecast <- dccforecast(dcc_fit, n.ahead = 1)
 dcc_forecast
 cov_forecast <- dcc_forecast@mforecast$H
@@ -604,4 +687,74 @@ portfolio_VaR_1 <- -(portfolio_var_forecast)**(1 / 2) *
 portfolio_VaR_5
 # 1.40%
 portfolio_VaR_1
+
 # 2.27%
+
+# VaR РґР»СЏ РѕС‚РґРµР»СЊРЅС‹С… СЌРјРёС‚РµРЅС‚РѕРІ
+
+# РњРѕРґРµР»Рё СЌРјРёС‚РµРЅС‚РѕРІ
+mgnt_spec <- ugarchspec(variance.model = list(model = 'sGARCH', garchOrder = c(1, 1)),
+                        mean.model = list(armaOrder = c(0, 0), include.mean = FALSE))
+mgnt_model <- ugarchfit(spec = mgnt_spec, data = df$MGNT)
+
+lnta_spec <- ugarchspec(variance.model = list(model = 'sGARCH', garchOrder = c(1, 1)),
+                        mean.model = list(armaOrder = c(0, 0), include.mean = FALSE))
+lnta_model <- ugarchfit(spec = lnta_spec, data = df$LNTA)
+
+five_spec <- ugarchspec(variance.model = list(model = 'sGARCH', garchOrder = c(1, 1)),
+                        mean.model = list(armaOrder = c(0, 0), include.mean = FALSE))
+five_model <- ugarchfit(spec = five_spec, data = df[!is.na(df$FIVE),'FIVE'])
+
+
+
+
+
+
+mgnt_spec_t <- ugarchspec(variance.model = list(model = 'eGARCH', garchOrder = c(1, 1)),
+                          mean.model = list(armaOrder = c(0, 0), include.mean = FALSE),
+                          distribution.model = 'std')
+mgnt_model_t <- ugarchfit(spec = mgnt_spec_t, data = df$MGNT)
+
+lnta_spec_t <- ugarchspec(variance.model = list(model = 'sGARCH', garchOrder = c(1, 1)),
+                          mean.model = list(armaOrder = c(0, 0), include.mean = FALSE),
+                          distribution.model = 'std')
+lnta_model_t <- ugarchfit(spec = lnta_spec_t, data = df$LNTA)
+
+five_spec_t <- ugarchspec(variance.model = list(model = 'sGARCH', garchOrder = c(1, 1)),
+                          mean.model = list(armaOrder = c(0, 0), include.mean = FALSE),
+                          distribution.model = 'std')
+five_model_t <- ugarchfit(spec = five_spec_t, data = df[!is.na(df$FIVE),'FIVE'])
+
+mgnt_shape['shape']
+
+mgnt_shape <- fitdist(distribution = 'std' , x = df$MGNT)$pars
+lnta_shape <- fitdist(distribution = 'std' , x = df$LNTA)$pars
+mvid_shape <- fitdist(distribution = 'std' , x = df$MVID)$pars
+five_shape <- fitdist(distribution = 'std' , x = df[!is.na(df$FIVE),'FIVE'])$pars
+
+
+mgnt_var <- qdist(distribution = 'std' , shape = mgnt_shape['shape'] , p = 0.05)
+lnta_var <- qdist(distribution = 'std' , shape = lnta_shape['shape'] , p = 0.05)
+mvid_var <- qdist(distribution = 'std' , shape = mvid_shape['shape'] , p = 0.05)
+five_var <- qdist(distribution = 'std' , shape = five_shape['shape'] , p = 0.05)
+
+
+qplot(y = df$MGNT , x = 1:1670 , geom = 'point') + geom_point(colour = 'lightgrey' , size = 2) + 
+  geom_line(aes(y = mgnt_model_t@fit$sigma*(mgnt_var) , x = 1:1670) , colour = 'red') +
+  geom_hline(yintercept = sd(df$MGNT)*qnorm(0.05) , colour = 'blue' , size = 1.2) + theme_light() + 
+  labs(x = '' , y = 'Daily Returns' , title = 'Value at Risk Comparison')
+
+qplot(df$MGNT , geom = 'histogram') + geom_histogram(fill = 'lightblue' , bins = 30) +
+  geom_histogram(aes(df$MGNT[df$MGNT < mgnt_var]) , fill = 'red' , bins = 30) +
+  labs(x = 'Daily Returns')
+
+
+autoplot(ts(mgnt_model_t@fit$sigma*mgnt_var))+
+  autolayer(ts(lnta_model_t@fit$sigma*lnta_var)) +
+  autolayer(ts(mvid_model_t@fit$sigma*mvid_var)) +
+  autolayer(ts(five_model_t@fit$sigma*five_var)) 
+
+
+
+
+
